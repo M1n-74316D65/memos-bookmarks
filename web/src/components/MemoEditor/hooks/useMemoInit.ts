@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Memo, Visibility } from "@/types/proto/api/v1/memo_service_pb";
+import type { Location, Memo, Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { cacheService, memoService } from "../services";
 import { useEditorContext } from "../state";
 import type { EditorController } from "../types/editorController";
@@ -9,11 +9,12 @@ interface UseMemoInitOptions {
   memo?: Memo;
   cacheKey?: string;
   username: string;
-  autoFocus?: boolean;
+  autoFocus?: boolean | (() => boolean);
   defaultVisibility?: Visibility;
   defaultCreateTime?: Date;
   /** Initial content for a new memo; takes precedence over any cached draft. */
   initialContent?: string;
+  defaultLocation?: Location;
 }
 
 export const useMemoInit = ({
@@ -25,6 +26,7 @@ export const useMemoInit = ({
   defaultVisibility,
   defaultCreateTime,
   initialContent,
+  defaultLocation,
 }: UseMemoInitOptions) => {
   const { actions, dispatch } = useEditorContext();
   const initializedRef = useRef(false);
@@ -42,6 +44,7 @@ export const useMemoInit = ({
     } else {
       if (initialContent !== undefined) {
         dispatch(actions.setContent(initialContent));
+        dispatch(actions.setMetadata({ location: defaultLocation }));
       } else {
         const cachedDraft = cacheService.loadDraft(key);
         if (cachedDraft.content) {
@@ -50,6 +53,7 @@ export const useMemoInit = ({
         if (cachedDraft.attachments.length > 0) {
           dispatch(actions.setMetadata({ attachments: cachedDraft.attachments }));
         }
+        dispatch(actions.setMetadata({ location: cachedDraft.location === null ? undefined : (cachedDraft.location ?? defaultLocation) }));
       }
       if (defaultVisibility !== undefined) {
         dispatch(actions.setMetadata({ visibility: defaultVisibility }));
@@ -66,7 +70,7 @@ export const useMemoInit = ({
         if (cachedCursor !== undefined) {
           editorRef.current?.setCursor(cachedCursor);
         }
-        if (autoFocus) {
+        if (typeof autoFocus === "function" ? autoFocus() : autoFocus) {
           editorRef.current?.focus();
         }
       }, 100);
@@ -78,7 +82,19 @@ export const useMemoInit = ({
         clearTimeout(restoreCursorTimer);
       }
     };
-  }, [memo, cacheKey, username, autoFocus, defaultVisibility, defaultCreateTime, actions, dispatch, editorRef]);
+  }, [
+    memo,
+    cacheKey,
+    username,
+    autoFocus,
+    defaultVisibility,
+    defaultCreateTime,
+    defaultLocation,
+    initialContent,
+    actions,
+    dispatch,
+    editorRef,
+  ]);
 
   return { isInitialized };
 };

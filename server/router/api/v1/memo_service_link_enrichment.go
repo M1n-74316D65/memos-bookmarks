@@ -386,7 +386,6 @@ func (s *APIV1Service) cacheLinkCover(ctx context.Context, creatorID int32, page
 		UID:       shortuuid.New(),
 		CreatorID: creatorID,
 		Filename:  filename,
-		Blob:      image.Blob,
 		Type:      image.Mediatype,
 		Size:      int64(len(image.Blob)),
 		Payload: &storepb.AttachmentPayload{
@@ -396,7 +395,12 @@ func (s *APIV1Service) cacheLinkCover(ctx context.Context, creatorID int32, page
 			},
 		},
 	}
-	if err := SaveAttachmentBlob(ctx, s.Profile, s.Store, create); err != nil {
+	setting, err := s.Store.GetInstanceStorageSetting(ctx)
+	if err != nil {
+		slog.Warn("failed to get link cover storage setting", "filename", filename, "err", err)
+		return "", 0, 0
+	}
+	if err := saveAttachmentContent(ctx, s.Profile, s.Store, create, setting, bytes.NewReader(image.Blob)); err != nil {
 		slog.Warn("failed to save link cover blob", "filename", filename, "err", err)
 		return "", 0, 0
 	}

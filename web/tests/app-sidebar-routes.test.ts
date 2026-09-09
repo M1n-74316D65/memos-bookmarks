@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getRouteActionPolicy, getSidebarRouteKind, routeSupportsCollectionScope } from "@/components/AppSidebar/routes";
+import { getRouteActionPolicy, getSidebarRouteKind } from "@/components/AppSidebar/routes";
 
 describe("sidebar route content", () => {
   it.each([
@@ -12,10 +12,15 @@ describe("sidebar route content", () => {
     ["/U/Steven/", "profile"],
     ["/views", "views"],
     ["/Views/", "views"],
+    ["/calendar", "calendar"],
+    ["/calendar/2026/08", "calendar"],
+    ["/Calendar/2026/08/02/", "calendar"],
     ["/attachments", "attachments"],
     ["/Attachments/", "attachments"],
     ["/bookmarks", "bookmarks"],
     ["/Bookmarks/", "bookmarks"],
+    ["/spaces/product/bookmarks", "bookmarks"],
+    ["/map", "map"],
     ["/inbox", "inbox"],
     ["/Inbox/", "inbox"],
     ["/setting", "settings"],
@@ -24,69 +29,44 @@ describe("sidebar route content", () => {
     ["/Memos/ABC/", "memo"],
     ["/memos/shares/token", "memo"],
     ["/Memos/Shares/token/", "memo"],
-    ["/about", "empty"],
-    ["/404", "empty"],
+    ["/about", "common"],
+    ["/403", "common"],
+    ["/404", "common"],
+    ["/unknown", "common"],
   ])("maps %s to %s content", (path, kind) => {
     expect(getSidebarRouteKind(path)).toBe(kind);
   });
 
-  it.each([
-    ["/", true],
-    ["/explore", true],
-    ["/archived", false],
-    ["/attachments", true],
-    ["/Explore/", true],
-    ["/ARCHIVED/", false],
-    ["/Attachments/", true],
-    ["/bookmarks", true],
-    ["/Bookmarks/", true],
-    ["/u/steven", false],
-    ["/inbox", false],
-    ["/setting", false],
-    ["/views", false],
-    ["/about", false],
-    ["/memos/abc", false],
-    ["/memos/shares/token", false],
-    ["/404", false],
-  ])("reports whether %s supports the remembered collection scope", (path, expected) => {
-    expect(routeSupportsCollectionScope(path)).toBe(expected);
-  });
-
-  it.each(["/", "/explore"])("keeps search and Compose in the remembered collection on %s", (path) => {
+  it.each(["/", "/explore"])("keeps search in the route collection on %s", (path) => {
     expect(getRouteActionPolicy(path)).toEqual({
-      searchScope: "remembered-collection",
-      composePlacement: "remembered-space",
+      searchScope: "route-collection",
     });
   });
 
-  it.each(["/archived", "/ARCHIVED/"])("keeps %s in the user archive without inheriting Space placement", (path) => {
+  it.each(["/archived", "/ARCHIVED/"])("keeps %s in the user archive", (path) => {
     expect(getRouteActionPolicy(path)).toEqual({
       searchScope: "user-collection",
-      composePlacement: "unassigned",
     });
   });
 
-  it("keeps the remembered scope when Attachments sends search to Home", () => {
-    expect(getRouteActionPolicy("/attachments")).toEqual({
-      searchScope: "remembered-collection",
+  it.each(["/attachments", "/calendar/2026/08/02", "/map", "/bookmarks"])("keeps the route scope when %s sends search to Home", (path) => {
+    expect(getRouteActionPolicy(path)).toEqual({
+      searchScope: "route-collection",
       searchDestination: "/",
-      composePlacement: "remembered-space",
     });
   });
 
-  it("keeps the remembered scope when Bookmarks sends search to Home", () => {
-    expect(getRouteActionPolicy("/bookmarks")).toEqual({
-      searchScope: "remembered-collection",
-      searchDestination: "/",
-      composePlacement: "remembered-space",
+  it("keeps Space bookmark search in the same Space", () => {
+    expect(getRouteActionPolicy("/spaces/product/bookmarks")).toEqual({
+      searchScope: "route-collection",
+      searchDestination: "/spaces/product",
     });
   });
 
-  it("keeps Profile search on Profile but makes Compose unassigned", () => {
+  it("keeps Profile search on Profile", () => {
     expect(getRouteActionPolicy("/u/steven")).toEqual({
       searchScope: "profile",
       searchDestination: "/u/steven",
-      composePlacement: "unassigned",
     });
   });
 
@@ -94,15 +74,13 @@ describe("sidebar route content", () => {
     expect(getRouteActionPolicy("/U/Steven/")).toEqual({
       searchScope: "profile",
       searchDestination: "/U/Steven",
-      composePlacement: "unassigned",
     });
   });
 
-  it("keeps a normalized Explore route in the remembered scope", () => {
+  it("keeps a normalized Explore route in the route scope", () => {
     const path = "/Explore/";
     expect(getRouteActionPolicy(path)).toEqual({
-      searchScope: "remembered-collection",
-      composePlacement: "remembered-space",
+      searchScope: "route-collection",
     });
   });
 
@@ -116,11 +94,10 @@ describe("sidebar route content", () => {
     "/403",
     "/404",
     "/unknown",
-  ])("sends search to All and makes Compose unassigned on %s", (path) => {
+  ])("sends search to All on %s", (path) => {
     expect(getRouteActionPolicy(path)).toEqual({
       searchScope: "all",
       searchDestination: "/",
-      composePlacement: "unassigned",
     });
   });
 });

@@ -76,12 +76,15 @@ func TestEnrichMemoLinksPersistsMetadata(t *testing.T) {
 	require.NotEmpty(t, entry.CoverAttachmentUid, "cover attachment should be cached")
 
 	// The cached cover must be a standalone attachment of the memo creator.
-	cover, err := service.Store.GetAttachment(context.Background(), &store.FindAttachment{UID: &entry.CoverAttachmentUid})
+	cover, err := service.Store.GetAttachment(context.Background(), &store.FindAttachment{UID: &entry.CoverAttachmentUid, GetBlob: true})
 	require.NoError(t, err)
 	require.NotNil(t, cover)
 	require.Equal(t, int32(1), cover.CreatorID)
 	require.Equal(t, "image/png", cover.Type)
 	require.Contains(t, cover.Filename, coverFilenamePrefix)
+	blob, err := service.GetAttachmentBlob(context.Background(), cover)
+	require.NoError(t, err)
+	require.Equal(t, []byte("fakepng"), blob)
 }
 
 func TestEnrichMemoLinksReusesExistingEntries(t *testing.T) {
