@@ -40,6 +40,7 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
     memo: memoData,
     className,
     parentPage: parentPageProp,
+    shareToken,
     compact,
     variant = "card",
     timeDisplay,
@@ -101,7 +102,7 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
 
   const isInMemoDetailPage = isMemoDetailPath(location.pathname, memoData.name);
   const showCommentPreview = variant !== "bento" && !isInMemoDetailPage && computeCommentAmount(memoData) > 0;
-  const bentoCover = variant === "bento" ? getBentoCoverUrl(memoData) : undefined;
+  const bentoCover = variant === "bento" ? getBentoCoverUrl(memoData, shareToken) : undefined;
   const visibleBentoCover = bentoCover === failedBentoCover ? undefined : bentoCover;
   const bentoTileTitle = variant === "bento" ? getBentoTileTitle(memoData) : "";
   const bentoTitle = bentoTileTitle || memoData.name.split("/").pop() || memoData.name;
@@ -149,6 +150,7 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
       creator,
       currentUser,
       parentPage,
+      shareToken,
       cardWidth,
       isArchived,
       readonly,
@@ -163,6 +165,7 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
       creator,
       currentUser,
       parentPage,
+      shareToken,
       cardWidth,
       isArchived,
       readonly,

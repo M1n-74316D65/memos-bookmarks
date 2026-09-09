@@ -267,6 +267,7 @@ const MemoDetail = () => {
               memo={displayMemo}
               compact={false}
               parentPage={parentPage}
+              shareToken={shareToken}
               shareImageDialogOpen={shareImageDialogOpen}
               showCreator
               showVisibility

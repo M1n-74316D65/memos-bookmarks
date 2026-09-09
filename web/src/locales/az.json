@@ -49,7 +49,19 @@
     "capture-saving": "Əlfəcin saxlanılır…",
     "import-drop-hint": "CSV faylını buraya sürükləyib buraxın və ya seçmək üçün klikləyin",
     "import-invalid-file": "Etibarlı CSV faylı seçin.",
-    "import-progress-label": "İdxalın gedişi"
+    "import-progress-label": "İdxalın gedişi",
+    "import-dedupe-failed": "Mövcud əlfəcinləri yoxlamaq mümkün olmadı. Heç bir əlfəcin idxal edilmədi. Yenidən cəhd edin.",
+    "import-cancelled": "İdxal dayandırıldı. Artıq saxlanılmış keçidlər qorundu.",
+    "import-cancelling": "Cari saxlamalar bitdikdən sonra dayandırılır…",
+    "import-checking": "Təkrarları tapmaq üçün bütün məkanlarınızdakı saxlanılmış və arxivləşdirilmiş keçidlər yoxlanılır. İdxal zamanı bu səhifəni açıq saxlayın.",
+    "capture-url-label": "Keçid URL-i",
+    "capture-continue": "Davam et",
+    "capture-invalid-url": "Etibarlı HTTP və ya HTTPS URL-i daxil edin.",
+    "capture-copy-failed": "Əlfəcin skriptini kopyalamaq mümkün olmadı. Yenidən cəhd edin.",
+    "capture-save-failed": "Keçidi saxlamaq mümkün olmadı. Qaralamanız yenidən cəhd üçün hazırdır.",
+    "refresh-covers-cancelled": "Üz qabıqlarının yenilənməsi dayandırıldı. Tamamlanmış yeniləmələr qorundu.",
+    "refresh-covers-scope": "Arxivləşdirilmiş əlfəcinlər də daxil olmaqla bütün əlfəcinlərinizdəki çatışmayan üz qabıqlarını yeniləyir.",
+    "import-file-too-large": "İxracınızı 10 MiB-dən kiçik CSV fayllarına bölün."
   },
   "about": {
     "api-docs": "API sənədləri",

@@ -8,6 +8,7 @@ export interface MemoContentProps {
   attachments?: Attachment[];
   /** Resource name of the memo (e.g. `memos/abc123`). Enables footnote links to target the memo detail page. */
   memoName?: string;
+  shareToken?: string;
   /** Collection page that rendered the memo, preserved when an inline link opens its detail page. */
   parentPage?: string;
   /** The card renders collapsed (ClampedSection), so footnote links navigate instead of scrolling. */

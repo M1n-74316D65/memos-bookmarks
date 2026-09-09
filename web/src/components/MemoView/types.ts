@@ -15,6 +15,7 @@ export interface MemoViewProps {
   showSpace?: boolean;
   className?: string;
   parentPage?: string;
+  shareToken?: string;
   shareImageDialogOpen?: boolean;
   onShareImageDialogOpenChange?: (open: boolean) => void;
 }
