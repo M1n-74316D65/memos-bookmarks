@@ -45,12 +45,12 @@ export const getSidebarRouteKind = (path: string): SidebarRouteKind => {
 export const getRouteActionPolicy = (path: string): RouteActionPolicy => {
   const kind = getSidebarRouteKind(path);
 
-  if (kind === "home" || kind === "explore") return { searchScope: "route-collection" };
+  if (kind === "home" || kind === "explore" || kind === "bookmarks") return { searchScope: "route-collection" };
   if (kind === "archived") return { searchScope: "user-collection" };
 
   // Calendar and attachments browse the route collection but are not memo lists
   // themselves, so a search leaves for the same collection's Home.
-  if (kind === "calendar" || kind === "map" || kind === "attachments" || kind === "bookmarks") {
+  if (kind === "calendar" || kind === "map" || kind === "attachments") {
     return { searchScope: "route-collection", searchDestination: collectionPathForLocation(ROUTES.HOME, path) };
   }
 

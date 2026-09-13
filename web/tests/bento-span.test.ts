@@ -50,6 +50,13 @@ describe("bentoCover text extraction", () => {
     expect(getBentoTileSnippet(memo)).toBe("");
   });
 
+  it("keeps capture tags out of bookmark titles when metadata is unavailable", async () => {
+    const { getBentoTileTitle } = await import("@/components/MemoView/bentoCover");
+    const memo = buildMemo({ content: "[Designing calm interfaces](https://example.com/article) #unread #design" });
+
+    expect(getBentoTileTitle(memo)).toBe("Designing calm interfaces");
+  });
+
   it("uses the first valid link hostname as the tile source", async () => {
     const { getBentoTileSource } = await import("@/components/MemoView/bentoCover");
     const memo = buildMemo({

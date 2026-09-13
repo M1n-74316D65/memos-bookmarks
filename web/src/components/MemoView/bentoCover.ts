@@ -14,19 +14,18 @@ export const getBentoCoverUrl = (memo: Memo, shareToken?: string): string | unde
   return image ? getAttachmentUrl(image) : undefined;
 };
 
-/** Compact, human-readable source for link tiles. */
-export const getBentoTileSource = (memo: Memo): string => {
+/** First safe source destination for opening a saved link. */
+export const getBentoTileSourceUrl = (memo: Memo): URL | undefined => {
   for (const link of memo.property?.links ?? []) {
-    if (!URL.canParse(link.url)) {
-      continue;
-    }
-    const hostname = new URL(link.url).hostname.replace(/^www\./, "");
-    if (hostname) {
-      return hostname;
-    }
+    if (!URL.canParse(link.url)) continue;
+    const url = new URL(link.url);
+    if (url.protocol === "https:" || url.protocol === "http:") return url;
   }
-  return "";
+  return undefined;
 };
+
+/** Compact, human-readable source for link tiles. */
+export const getBentoTileSource = (memo: Memo): string => getBentoTileSourceUrl(memo)?.hostname.replace(/^www\./, "") ?? "";
 
 const stripMarkdown = (line: string): string =>
   line
@@ -35,17 +34,24 @@ const stripMarkdown = (line: string): string =>
     .replace(/[#*>`~]/g, "")
     .trim();
 
+const getCapturedBookmarkTitle = (line: string): string | undefined => {
+  const match = line.trim().match(/^\[([^\]]+)]\([^)]*\)(?:\s+#[^\s#]+)*\s*$/);
+  return match?.[1]?.trim() || undefined;
+};
+
 /** Tile title: the first stored link title, else the first meaningful content line. */
 export const getBentoTileTitle = (memo: Memo): string => {
   const linkTitle = (memo.property?.links ?? []).find((link) => Boolean(link.title))?.title;
   if (linkTitle) {
     return linkTitle;
   }
-  const firstLine = (memo.content ?? "")
-    .split("\n")
-    .map((line) => stripMarkdown(line))
-    .find((line) => line.length > 0);
-  return firstLine ?? "";
+  for (const line of (memo.content ?? "").split("\n")) {
+    const capturedTitle = getCapturedBookmarkTitle(line);
+    if (capturedTitle) return capturedTitle;
+    const stripped = stripMarkdown(line);
+    if (stripped) return stripped;
+  }
+  return "";
 };
 
 /** Tile body snippet: subsequent lines for non-cover text cards. */

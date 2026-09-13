@@ -1,9 +1,13 @@
-import { BookmarkIcon, CheckIcon, ImportIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { BookmarkIcon, CheckIcon, ImportIcon, PlusIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import BookmarksImportDialog from "@/components/BookmarksImport/BookmarksImportDialog";
+import MemoDisplaySettingMenu from "@/components/MemoDisplaySettingMenu";
 import MemoView from "@/components/MemoView";
 import PagedMemoList, { getMemoKey } from "@/components/PagedMemoList";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { useAppSidebar } from "@/contexts/AppSidebarContext";
+import { useMemoFilterContext } from "@/contexts/MemoFilterContext";
 import { useSpaceContext } from "@/contexts/SpaceContext";
 import { useMemoFilters, useMemoSorting } from "@/hooks";
 import { useBookmarkCoverRefresh } from "@/hooks/useBookmarkCoverRefresh";
@@ -48,7 +52,7 @@ const HeaderAction = ({
   );
   if (to) {
     return (
-      <Link to={to} className={className}>
+      <Link to={to} className={className} title={description ?? label}>
         {content}
       </Link>
     );
@@ -63,9 +67,13 @@ const HeaderAction = ({
 const Bookmarks = () => {
   const user = useCurrentUser();
   const t = useTranslate();
+  const location = useLocation();
+  const { setQuickFindOpen } = useAppSidebar();
+  const { hasActiveFilters } = useMemoFilterContext();
   const { memoFilter: spaceFilter } = useSpaceContext();
   const [importOpen, setImportOpen] = useState(false);
   const { coverRefresh, refreshCovers, cancelRefresh } = useBookmarkCoverRefresh();
+  const capturePath = `${ROUTES.BOOKMARK}?returnTo=${encodeURIComponent(location.pathname + location.search)}`;
 
   const memoFilter = useMemoFilters({
     creatorName: user?.name,
@@ -102,69 +110,122 @@ const Bookmarks = () => {
 
   return (
     <>
-      <PagedMemoList
-        renderer={(memo: Memo, { compact, variant }) => (
-          <MemoView key={getMemoKey(memo)} memo={memo} showVisibility showSpace compact={compact} variant={variant} />
-        )}
-        listSort={listSort}
-        state={State.NORMAL}
-        orderBy={orderBy}
-        filter={memoFilter}
-        contextFilter={combineCELFilters("has_link", spaceFilter)}
-        renderLeading={({ useGrid }) => (
-          <header className={cn("flex flex-col gap-2 border-b border-border/80 px-1 pb-3", !useGrid && "mb-4")}>
-            <div className="flex items-center gap-2">
-              <BookmarkIcon className="size-5 text-muted-foreground" strokeWidth={1.8} />
-              <h1 className="text-xl font-semibold tracking-tight text-foreground">{t("common.bookmarks")}</h1>
-              <div className="ml-auto flex shrink-0 items-center gap-1">
-                <HeaderAction
-                  to={ROUTES.BOOKMARK}
-                  icon={<PlusIcon className="size-3.5" strokeWidth={1.8} />}
-                  label={t("common.save-link")}
-                  primary
-                />
-                <HeaderAction
-                  icon={<ImportIcon className="size-3.5" strokeWidth={1.8} />}
-                  label={t("bookmarks.import")}
-                  onClick={() => setImportOpen(true)}
-                />
-                <HeaderAction
-                  icon={<RefreshCwIcon className={cn("size-3.5", coverRefresh.status === "running" && "animate-spin")} strokeWidth={1.8} />}
-                  label={coverRefresh.status === "running" ? t("bookmarks.refreshing-covers") : t("bookmarks.refresh-covers")}
-                  onClick={() => void refreshCovers()}
-                  disabled={coverRefresh.status === "running"}
-                  busy={coverRefresh.status === "running"}
-                  description={t("bookmarks.refresh-covers-scope")}
-                />
-              </div>
-            </div>
-            {refreshStatus !== null ? (
-              <div
-                aria-live="polite"
-                aria-atomic="true"
-                className={cn(
-                  "flex items-center gap-1.5 self-end pr-1 font-mono text-xs text-muted-foreground",
-                  coverRefresh.status === "done" && coverRefresh.failed === 0 && "text-success",
-                  coverRefresh.status === "done" && coverRefresh.failed > 0 && "text-warning",
-                  coverRefresh.status === "error" && "text-destructive",
-                )}
-              >
-                {coverRefresh.status === "done" && <CheckIcon className="size-3" strokeWidth={2} />}
-                {refreshStatus}
-                {coverRefresh.status === "running" && (
+      <section className="@container flex min-h-full w-full flex-col items-center">
+        <div className="mx-auto w-full px-4 pb-8 pt-3 sm:px-6 md:pt-6">
+          <PagedMemoList
+            renderer={(memo: Memo, { variant }) => (
+              <MemoView
+                key={getMemoKey(memo)}
+                memo={memo}
+                showVisibility
+                showSpace
+                showPinned
+                compact
+                variant="bento"
+                className={variant !== "bento" ? "mb-3 min-h-40" : undefined}
+              />
+            )}
+            listSort={listSort}
+            state={State.NORMAL}
+            orderBy={orderBy}
+            filter={memoFilter}
+            contextFilter={combineCELFilters("has_link", spaceFilter)}
+            emptyMessage={t(hasActiveFilters ? "bookmarks.no-results" : "bookmarks.empty")}
+            emptyActions={
+              !hasActiveFilters ? (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Link to={capturePath} className={cn(buttonVariants({ size: "sm" }), "h-10 px-3 sm:h-7 sm:px-2")}>
+                    <PlusIcon aria-hidden className="size-3.5" />
+                    {t("common.save-link")}
+                  </Link>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-10 px-3 sm:h-7 sm:px-2"
+                    onClick={() => setImportOpen(true)}
+                  >
+                    <ImportIcon aria-hidden className="size-3.5" />
+                    {t("bookmarks.import")}
+                  </Button>
+                </div>
+              ) : undefined
+            }
+            renderHeader={() => (
+              <header className="mb-4 flex flex-col gap-3 border-b border-border/80 px-1 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <BookmarkIcon className="size-4" strokeWidth={1.9} />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-xl font-semibold tracking-tight text-foreground">{t("common.bookmarks")}</h1>
+                    <p className="hidden text-xs text-muted-foreground sm:block">{t("bookmarks.description")}</p>
+                  </div>
+                  <div className="ml-auto shrink-0">
+                    <HeaderAction
+                      to={capturePath}
+                      icon={<PlusIcon className="size-3.5" strokeWidth={1.8} />}
+                      label={t("common.save-link")}
+                      primary
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-card/60 p-1 shadow-xs">
                   <button
                     type="button"
-                    onClick={cancelRefresh}
-                    className="shrink-0 rounded-md p-2 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => setQuickFindOpen(true)}
+                    className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md px-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-8"
                   >
-                    {t("common.cancel")}
+                    <SearchIcon aria-hidden className="size-4 shrink-0" />
+                    <span className="truncate">{t("bookmarks.search-placeholder")}</span>
                   </button>
-                )}
-              </div>
-            ) : null}
-          </header>
-        )}
-      />
+                  <div className="h-5 w-px shrink-0 bg-border/70" />
+                  <MemoDisplaySettingMenu className="size-10 sm:size-8" />
+                  <HeaderAction
+                    icon={<ImportIcon className="size-3.5" strokeWidth={1.8} />}
+                    label={t("bookmarks.import")}
+                    onClick={() => setImportOpen(true)}
+                  />
+                  <HeaderAction
+                    icon={
+                      <RefreshCwIcon className={cn("size-3.5", coverRefresh.status === "running" && "animate-spin")} strokeWidth={1.8} />
+                    }
+                    label={coverRefresh.status === "running" ? t("bookmarks.refreshing-covers") : t("bookmarks.refresh-covers")}
+                    onClick={() => void refreshCovers()}
+                    disabled={coverRefresh.status === "running"}
+                    busy={coverRefresh.status === "running"}
+                    description={t("bookmarks.refresh-covers-scope")}
+                  />
+                </div>
+                {refreshStatus !== null ? (
+                  <div
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className={cn(
+                      "flex flex-wrap items-center gap-1.5 pr-1 font-mono text-xs text-muted-foreground",
+                      coverRefresh.status === "done" && coverRefresh.failed === 0 && "text-success",
+                      coverRefresh.status === "done" && coverRefresh.failed > 0 && "text-warning",
+                      coverRefresh.status === "error" && "text-destructive",
+                    )}
+                  >
+                    {coverRefresh.status === "done" && <CheckIcon className="size-3" strokeWidth={2} />}
+                    {refreshStatus}
+                    {coverRefresh.status === "running" && (
+                      <button
+                        type="button"
+                        onClick={cancelRefresh}
+                        className="shrink-0 rounded-md p-2 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                    )}
+                  </div>
+                ) : null}
+              </header>
+            )}
+          />
+        </div>
+      </section>
       <BookmarksImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </>
   );

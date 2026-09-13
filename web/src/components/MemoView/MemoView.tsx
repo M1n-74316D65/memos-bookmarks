@@ -1,4 +1,3 @@
-import { PinIcon } from "lucide-react";
 import {
   type ComponentType,
   forwardRef,
@@ -17,19 +16,17 @@ import { loadMemoEditor } from "@/components/MemoEditor/loader";
 import type { MemoEditorProps } from "@/components/MemoEditor/types";
 import { useAuth } from "@/contexts/AuthContext";
 import useCurrentUser from "@/hooks/useCurrentUser";
-import useNavigateTo from "@/hooks/useNavigateTo";
 import { isMemoBlurred } from "@/lib/tag";
 import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
-import { useTranslate } from "@/utils/i18n";
 import { lazyWithReload } from "@/utils/lazy";
 import { isSuperUser } from "@/utils/user";
-import { getBentoCoverUrl, getBentoTileSnippet, getBentoTileSource, getBentoTileTitle } from "./bentoCover";
 import { MemoBody, MemoCommentListView, MemoHeader } from "./components";
+import MemoSummary from "./components/MemoSummary";
 import { MEMO_CARD_BASE_CLASSES } from "./constants";
 import { useImagePreview } from "./hooks";
 import { computeCommentAmount, MemoViewContext } from "./MemoViewContext";
-import { createMemoNavigationState, isMemoDetailPath, resolveMemoParentPage } from "./navigation";
+import { isMemoDetailPath, resolveMemoParentPage } from "./navigation";
 import type { MemoViewHandle, MemoViewProps } from "./types";
 
 const MemoShareImageDialog = lazyWithReload(() => import("../MemoActionMenu/MemoShareImageDialog"));
@@ -53,8 +50,6 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
   const [showEditor, setShowEditor] = useState(false);
   const [EditorComponent, setEditorComponent] = useState<ComponentType<MemoEditorProps>>();
   const [cardWidth, setCardWidth] = useState(0);
-  const [failedBentoCover, setFailedBentoCover] = useState<string>();
-  const t = useTranslate();
 
   const currentUser = useCurrentUser();
   const { userTagsSetting } = useAuth();
@@ -62,7 +57,6 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
   const isArchived = memoData.state === State.ARCHIVED;
   const readonly = memoData.creator !== currentUser?.name && !isSuperUser(currentUser);
   const location = useLocation();
-  const navigateTo = useNavigateTo();
   const parentPage = resolveMemoParentPage({
     explicitParentPage: parentPageProp,
     pathname: location.pathname,
@@ -102,14 +96,6 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
 
   const isInMemoDetailPage = isMemoDetailPath(location.pathname, memoData.name);
   const showCommentPreview = variant !== "bento" && !isInMemoDetailPage && computeCommentAmount(memoData) > 0;
-  const bentoCover = variant === "bento" ? getBentoCoverUrl(memoData, shareToken) : undefined;
-  const visibleBentoCover = bentoCover === failedBentoCover ? undefined : bentoCover;
-  const bentoTileTitle = variant === "bento" ? getBentoTileTitle(memoData) : "";
-  const bentoTitle = bentoTileTitle || memoData.name.split("/").pop() || memoData.name;
-  const bentoBodySnippet = variant === "bento" && !visibleBentoCover ? getBentoTileSnippet(memoData) : "";
-  const bentoSource = variant === "bento" ? getBentoTileSource(memoData) : "";
-  const bentoCreator = creator?.displayName || creator?.username || "";
-  const bentoMetadata = [bentoSource, bentoCreator].filter(Boolean).join(" · ");
 
   // The card width is only needed by the share-image dialog. Keep feed cards
   // free of a permanent ResizeObserver and measure only while that dialog is open.
@@ -183,71 +169,14 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
         MEMO_CARD_BASE_CLASSES,
         showCommentPreview ? "mb-0 rounded-b-none" : "mb-2",
         variant === "bento" &&
-          "mb-0 overflow-hidden border-border/80 p-0 transition-[border-color,background-color] hover:border-foreground/20",
-        variant === "bento" && (visibleBentoCover ? "justify-end" : "justify-between"),
+          "mb-0 overflow-hidden rounded-xl border-border/70 p-0 transition-[border-color,background-color] hover:border-foreground/25 focus-within:border-ring/50",
         className,
       )}
       ref={cardRef}
       tabIndex={variant === "bento" ? -1 : readonly ? -1 : 0}
     >
       {variant === "bento" ? (
-        visibleBentoCover ? (
-          <>
-            <div aria-hidden className="absolute inset-0">
-              <img
-                src={visibleBentoCover}
-                alt=""
-                loading="lazy"
-                className="size-full object-cover transition-opacity group-hover:opacity-95"
-                onError={() => setFailedBentoCover(visibleBentoCover)}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-            </div>
-            {/* Cover tiles trade the full card body for a glanceable title overlay; the
-                action menu and full content stay one click away on the detail page. */}
-            <button
-              type="button"
-              className="relative z-10 flex h-full w-full cursor-pointer flex-col justify-end p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-              onClick={() => navigateTo(`/${memoData.name}`, { state: createMemoNavigationState(parentPage) })}
-            >
-              {(bentoSource || (showPinned && memoData.pinned)) && (
-                <div className="mb-2 flex min-w-0 items-center gap-2 text-[11px] font-medium text-white/75">
-                  {bentoSource && <span className="truncate font-mono">{bentoSource}</span>}
-                  {showPinned && memoData.pinned && (
-                    <span className="ml-auto flex shrink-0 items-center gap-1 text-white">
-                      <PinIcon className="size-3" strokeWidth={2} />
-                      {t("common.pinned")}
-                    </span>
-                  )}
-                </div>
-              )}
-              <p className="line-clamp-3 text-sm font-semibold leading-5 text-white drop-shadow-sm">{bentoTitle}</p>
-              {bentoCreator && <p className="mt-1.5 line-clamp-1 text-xs text-white/70">{bentoCreator}</p>}
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="relative z-10 flex h-full w-full cursor-pointer flex-col p-4 text-left transition-colors hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-            onClick={() => navigateTo(`/${memoData.name}`, { state: createMemoNavigationState(parentPage) })}
-          >
-            {(bentoMetadata || (showPinned && memoData.pinned)) && (
-              <div className="mb-3 flex min-w-0 items-center gap-2 text-[11px] font-medium text-muted-foreground">
-                {bentoMetadata && <span className="truncate font-mono">{bentoMetadata}</span>}
-                {showPinned && memoData.pinned && (
-                  <span className="ml-auto flex shrink-0 items-center gap-1 text-foreground">
-                    <PinIcon className="size-3" strokeWidth={2} />
-                    {t("common.pinned")}
-                  </span>
-                )}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="line-clamp-3 text-sm font-semibold leading-5 text-card-foreground">{bentoTitle}</p>
-              {bentoBodySnippet && <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{bentoBodySnippet}</p>}
-            </div>
-          </button>
-        )
+        <MemoSummary showCreator={showCreator} showVisibility={showVisibility} showPinned={showPinned} showSpace={showSpace} />
       ) : (
         <>
           <MemoHeader

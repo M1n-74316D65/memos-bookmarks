@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemoInit } from "@/components/MemoEditor/hooks/useMemoInit";
 import { cacheService } from "@/components/MemoEditor/services/cacheService";
@@ -15,9 +15,17 @@ vi.mock("@/hooks/useMemoQueries", () => ({ useCreateMemo: () => ({ mutate: state
 vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
 vi.mock("react-hot-toast", () => ({ default: { error: state.error } }));
 vi.mock("@/components/MemoEditor", () => ({
-  default: (props: { initialContent?: string; defaultSpace?: string; cacheKey: string }) => (
+  default: (props: { initialContent?: string; defaultSpace?: string; cacheKey: string; onConfirm?: () => void; onCancel?: () => void }) => (
     <EditorProvider>
       <EditorProbe {...props} />
+      <button type="button" onClick={props.onConfirm}>
+        Save
+      </button>
+      {props.onCancel && (
+        <button type="button" onClick={props.onCancel}>
+          Cancel
+        </button>
+      )}
     </EditorProvider>
   ),
 }));
@@ -38,10 +46,21 @@ function EditorProbe({ initialContent, defaultSpace, cacheKey }: { initialConten
   );
 }
 
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <output data-testid="location">
+      {location.pathname}
+      {location.search}
+    </output>
+  );
+}
+
 const renderCapture = (query = "") =>
   render(
     <MemoryRouter initialEntries={[`/bookmark${query}`]}>
       <Bookmark />
+      <LocationProbe />
     </MemoryRouter>,
   );
 
@@ -59,6 +78,41 @@ describe("bookmark capture", () => {
     cacheService.clearAll();
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each(["Save", "Cancel"])("returns to the filtered bookmarks page when choosing %s", (action) => {
+    const returnTo = "/bookmarks?filter=tagSearch%3Awork&view=list";
+    renderCapture(`?returnTo=${encodeURIComponent(returnTo)}`);
+    fireEvent.change(screen.getByRole("textbox", { name: "bookmarks.capture-url-label" }), {
+      target: { value: "https://example.com/article" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "bookmarks.capture-continue" }));
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    expect(screen.getByTestId("location")).toHaveTextContent(returnTo);
+  });
+
+  it("offers a return link before a URL is entered", () => {
+    const returnTo = "/bookmarks?filter=tagSearch%3Awork";
+    renderCapture(`?returnTo=${encodeURIComponent(returnTo)}`);
+    expect(screen.getByRole("link", { name: "memo.back-to" })).toHaveAttribute("href", returnTo);
+  });
+
+  it.each([
+    "https://evil.example/bookmarks",
+    "//evil.example/bookmarks",
+    "/bookmarks/../settings",
+    "/bookmarks-extra",
+    "/settings",
+  ])("falls back home when returnTo is %s", (returnTo) => {
+    renderCapture(`?url=https://example.com/article&returnTo=${encodeURIComponent(returnTo)}`);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByTestId("location").textContent).toBe("/");
+  });
+
+  it("still returns home when the standalone bookmarklet autosaves", () => {
+    state.mutate.mockImplementation((_memo, options: { onSuccess: () => void }) => options.onSuccess());
+    renderCapture("?url=https://example.com/article&autosave=1");
+    expect(screen.getByTestId("location").textContent).toBe("/");
+  });
 
   it("restores annotations and uploaded attachments when a capture is reopened", () => {
     const first = renderCapture("?url=https://example.com/article");

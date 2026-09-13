@@ -1,8 +1,7 @@
 import { type ReactNode, useMemo } from "react";
 import { type Photo, RowsPhotoAlbum } from "react-photo-album";
 import "react-photo-album/rows.css";
-import { GRID_GAP } from "@/components/ColumnGrid";
-import { estimateMemoCardHeight } from "@/components/PagedMemoList/memoCardHeight";
+import { columnCountForWidth, GRID_GAP } from "@/components/ColumnGrid";
 import type { Memo } from "@/types/proto/api/v1/memo_service_pb";
 import { BENTO_ROW_UNIT, BENTO_ROW_UNIT_SMALL, BENTO_SMALL_WIDTH, memoVisualAspect } from "./bentoSpan";
 
@@ -24,14 +23,12 @@ interface BentoPhoto extends Photo {
   memo: Memo;
 }
 
-// Text-only tiles get their shape from the card-height estimator, expressed as a
-// width/height pair around a nominal 1000px base.
 const TEXT_BASE_WIDTH = 1000;
 
 /**
  * Bento layout built on react-photo-album's rows layout: a justified grid where each
  * row is solved from the tiles' aspect ratios, so media shape drives tile shape with
- * no hand-rolled packing. Pinned memos get double width weight as heroes.
+ * no hand-rolled packing. Summary readability bounds media shape and row density.
  */
 const BentoGrid = ({ items, getKey, renderItem, leading, priorityKey, maxColumns }: BentoGridProps) => {
   const photos = useMemo(() => {
@@ -44,12 +41,10 @@ const BentoGrid = ({ items, getKey, renderItem, leading, priorityKey, maxColumns
       }
     }
     return ordered.map<BentoPhoto>((memo) => {
-      const aspect = memoVisualAspect(memo);
-      // Nominal column width for the estimator fallback; the album rescales anyway.
-      const estimatedHeight = estimateMemoCardHeight(memo, { columnWidth: 360 });
-      const width = memo.pinned ? TEXT_BASE_WIDTH * 2 : TEXT_BASE_WIDTH;
-      const height = aspect ? Math.round(width / aspect) : Math.round(width * (estimatedHeight / 360));
-      return { src: "", width, height, memo, key: getKey(memo) };
+      // Coverless summaries are typographic tiles, so give them a wider shape than
+      // media cards instead of stretching a small amount of text into a tall box.
+      const aspect = Math.max(1.5, Math.min(3, memoVisualAspect(memo) ?? 3));
+      return { src: "", width: TEXT_BASE_WIDTH, height: Math.round(TEXT_BASE_WIDTH / aspect), memo, key: getKey(memo) };
     });
   }, [items, getKey, priorityKey]);
 
@@ -65,7 +60,10 @@ const BentoGrid = ({ items, getKey, renderItem, leading, priorityKey, maxColumns
         spacing={GRID_GAP}
         targetRowHeight={(containerWidth) => (containerWidth < BENTO_SMALL_WIDTH ? BENTO_ROW_UNIT_SMALL : BENTO_ROW_UNIT)}
         defaultContainerWidth={800}
-        rowConstraints={maxColumns && maxColumns > 0 ? { maxPhotos: maxColumns } : undefined}
+        rowConstraints={(width) => ({
+          maxPhotos: Math.min(columnCountForWidth(width), maxColumns || Infinity),
+          singleRowMaxHeight: BENTO_ROW_UNIT,
+        })}
         render={{
           photo: (_props, { photo, width, height }) => (
             <div className="relative overflow-hidden [&>*]:absolute [&>*]:inset-0" style={{ width, height }}>

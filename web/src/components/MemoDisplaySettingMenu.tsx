@@ -1,6 +1,7 @@
 import { useDirection } from "@base-ui/react/direction-provider";
 import { Columns2Icon, Columns3Icon, InfinityIcon, LayoutGridIcon, type LucideIcon, Rows3Icon, SlidersHorizontalIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { SIDEBAR_SECTION_ACTION_ICON_CLASSES } from "@/components/AppSidebar/SidebarSection";
 import { buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LAYOUT_MODE_VALUES, MAX_COLUMNS_VALUES, type MemoLayoutMode, type MemoMaxColumns, useView } from "@/contexts/ViewContext";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/router/routes";
 import { useTranslate } from "@/utils/i18n";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
@@ -50,6 +52,7 @@ const SettingRow = ({ label, description, children }: SettingRowProps) => (
 
 function MemoDisplaySettingsContent() {
   const t = useTranslate();
+  const { pathname } = useLocation();
   const direction = useDirection();
   const {
     orderByTimeAsc,
@@ -232,20 +235,21 @@ function MemoDisplaySettingsContent() {
           </Select>
         </SettingRow>
       </section>
-
-      <section className="space-y-2 border-t border-border/60 px-3 py-2.5">
-        <SettingRow label={t("memo.compact-mode")} description={compactLocked ? t("memo.grid-compact-hint") : undefined}>
-          <Switch
-            aria-label={t("memo.compact-mode")}
-            checked={compactLocked || compactMode}
-            onCheckedChange={setCompactMode}
-            disabled={compactLocked}
-          />
-        </SettingRow>
-        <SettingRow label={t("memo.link-preview")}>
-          <Switch aria-label={t("memo.link-preview")} checked={linkPreview} onCheckedChange={setLinkPreview} />
-        </SettingRow>
-      </section>
+      {pathname !== ROUTES.BOOKMARKS && (
+        <section className="space-y-2 border-t border-border/60 px-3 py-2.5">
+          <SettingRow label={t("memo.compact-mode")} description={compactLocked ? t("memo.grid-compact-hint") : undefined}>
+            <Switch
+              aria-label={t("memo.compact-mode")}
+              checked={compactLocked || compactMode}
+              onCheckedChange={setCompactMode}
+              disabled={compactLocked}
+            />
+          </SettingRow>
+          <SettingRow label={t("memo.link-preview")}>
+            <Switch aria-label={t("memo.link-preview")} checked={linkPreview} onCheckedChange={setLinkPreview} />
+          </SettingRow>
+        </section>
+      )}
     </div>
   );
 }

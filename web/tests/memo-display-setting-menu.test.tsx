@@ -1,9 +1,13 @@
 import { DirectionProvider } from "@base-ui/react/direction-provider";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as renderUI, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SIDEBAR_SECTION_ACTION_ICON_CLASSES } from "@/components/AppSidebar/SidebarSection";
 import MemoDisplaySettingMenu from "@/components/MemoDisplaySettingMenu";
 import { ViewProvider } from "@/contexts/ViewContext";
+
+const render = (ui: ReactNode, entry = "/") => renderUI(<MemoryRouter initialEntries={[entry]}>{ui}</MemoryRouter>);
 
 vi.mock("@/utils/i18n", () => ({
   useTranslate: () => (key: string, params?: Record<string, number>) => {
@@ -39,6 +43,19 @@ vi.mock("@/utils/i18n", () => ({
 describe("MemoDisplaySettingMenu", () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  it("shows only applicable display controls for bookmark summaries", () => {
+    render(
+      <ViewProvider>
+        <MemoDisplaySettingMenu />
+      </ViewProvider>,
+      "/bookmarks",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "View options" }));
+    expect(screen.getByRole("radiogroup", { name: "Layout" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Compact mode" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Link preview" })).not.toBeInTheDocument();
   });
 
   it("opens from an accessible trigger and explains the compact grid constraint", () => {

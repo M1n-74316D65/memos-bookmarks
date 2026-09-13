@@ -46,6 +46,12 @@ describe("MemoDetailSidebar", () => {
     currentUserState.value = { name: "users/alice" };
   });
 
+  it("labels the filtered bookmarks origin correctly", () => {
+    const parentPage = "/bookmarks?filter=tagSearch%3Awork";
+    renderSidebar(<MemoDetailSidebar memo={create(MemoSchema, { name: "memos/detail" })} parentPage={parentPage} hasExplicitOrigin />);
+    expect(screen.getByRole("link", { name: "memo.back-to:common.bookmarks" })).toHaveAttribute("href", parentPage);
+  });
+
   it("returns to the scoped map with its filters, viewport, and selection", () => {
     const parentPage = "/spaces/travel/map?filter=tagSearch%3Atravel&lat=35&lng=135&zoom=12&memo=memos%2Fdetail";
     renderSidebar(<MemoDetailSidebar memo={create(MemoSchema, { name: "memos/detail" })} parentPage={parentPage} hasExplicitOrigin />);

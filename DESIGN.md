@@ -36,14 +36,16 @@ Theme files under `web/src/themes/` own actual values. Components use semantic t
 
 - Use the Tailwind spacing scale already present in the frontend.
 - `GRID_GAP` owns feed seams; cards must not add an extra outer margin inside grid cells.
-- Bento geometry remains aspect-driven through `react-photo-album`; content adapts to the tile rather than changing the packing algorithm.
-- At narrow widths, shared feed policy returns bento to the existing single-column flow layout.
+- Bento uses `react-photo-album` with bounded display aspect ratios (3:2 through 3:1), a 3:1 coverless-card ratio, and at most one tile per 260px of available width. Full memo length must not determine summary width.
+- At narrow widths, shared feeds return to single-column flow. Bookmarks retain compact summary cards in every layout, with a 160px minimum height outside the album.
 
 ## 5. Components
 
 ### Bookmark Masthead
 
 - Title and bookmark icon establish the page.
+- The masthead spans the entire collection in every layout. Search and view options are available in a wrapping secondary toolbar; active filters remain visible below it.
+- Empty collections explain that saving a link creates a bookmark; filtered empty collections invite the user to adjust filters.
 - Save Link is the sole primary action; Import and Refresh remain quiet utilities.
 - Mobile uses icon-only controls with accessible names and 40px touch targets; labels appear from `sm` upward.
 - Refresh exposes idle, running, success, partial-failure, error, and disabled states without changing the underlying RPC behavior.
@@ -53,16 +55,20 @@ Theme files under `web/src/themes/` own actual values. Components use semantic t
 
 - Capture provides a labeled native URL field and one primary Continue action before the existing memo editor. Bookmarklet setup remains secondary.
 - Invalid URLs and failed saves preserve the draft and show explicit error text. Only HTTP and HTTPS links enter capture.
+- Capture opened from Bookmarks returns to the originating bookmark collection, including its query. Detail navigation names that destination correctly.
 - Import reuses the shared dialog, buttons and semantic color tokens. The file picker supports keyboard, click and drag-and-drop.
+- Dialogs move keyboard focus inside on open and restore it on close. Tab navigation stays within a modal.
 - File preview is cleared when a replacement cannot be read. During import, the selected file is fixed and cancellation stops further creation while keeping completed bookmarks.
 - Import progress uses a named progressbar and a polite live region; error, cancellation, completion and active states are distinct.
 
 ### Bento Tile
 
-- One full-card navigation button in every tile.
-- Cover variant: image, single readability gradient, source label, title, optional creator, and pinned status.
+- A native detail link names each tile by its title; source links open the external HTTP(S) page separately. Links must not nest.
+- Cover variant: image above a semantic card surface containing title, optional creator, and metadata. Text readability must not depend on image contrast.
 - Text variant: source/creator rail, title, excerpt, and pinned status.
 - Failed covers fall back to the text variant.
+- Pin, Space, and non-private visibility remain available across layouts. Metadata uses a readable semantic surface when necessary over covers.
+- Sensitive-tag tiles display only a reveal control until revealed; their image, title, excerpt, and source are also concealed from assistive technology.
 - Default, hover, keyboard-focus, pinned, long-content, missing-metadata, and failed-media states are required.
 
 ## 6. Motion
@@ -76,11 +82,11 @@ Theme files under `web/src/themes/` own actual values. Components use semantic t
 
 - Cards use the existing card surface, radius, and border tokens.
 - No shadow at rest. Hover may strengthen the border or surface tone without lifting the card.
-- Cover readability uses one bottom gradient; stacked decorative overlays are avoided.
+- Cover images use no decorative overlay; title and metadata use the card surface.
 
 ## 8. Accessibility & Debt
 
-- Full-card buttons must have visible `focus-visible` treatment using `--ring`.
+- Tile links and reveal controls must have visible `focus-visible` treatment using `--ring` and concise accessible names.
 - Icon-only actions retain accessible names; status updates use polite live-region announcements.
 - Decorative cover images use empty alt text because the adjacent title names the destination.
 - Long and unbroken content must clamp without causing horizontal overflow at 375px or 200% zoom.

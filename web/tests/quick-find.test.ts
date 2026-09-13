@@ -57,7 +57,7 @@ describe("Quick Find", () => {
     expect(buildQuickFindFilters("project", scopedFilters, false, "text")).toEqual([{ factor: "contentSearch", value: "project" }]);
   });
 
-  it.each(["/", "/explore"])("keeps scoped filters and stays on %s", (pathname) => {
+  it.each(["/", "/explore", "/bookmarks"])("keeps scoped filters and stays on %s", (pathname) => {
     expect(resolveQuickFindSubmission(pathname, "project", scopedFilters, "text")).toEqual({
       filters: [
         { factor: "tagSearch", value: "work" },

@@ -69,6 +69,7 @@ export const resolveQuickFindSubmission = (
 
 const getScopeLabel = (pathname: string, t: ReturnType<typeof useTranslate>) => {
   const routeKind = getSidebarRouteKind(pathname);
+  if (routeKind === "bookmarks") return t("common.bookmarks");
   if (routeKind === "archived") return t("common.archived");
   if (routeKind === "explore") return t("common.explore");
   if (routeKind === "profile") return t("common.profile");

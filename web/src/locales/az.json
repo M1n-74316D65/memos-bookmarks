@@ -21,6 +21,10 @@
     "open-memo": "Qeydi aç"
   },
   "bookmarks": {
+    "description": "Yadda saxladığınız keçidlər, yenidən baxmağa hazırdır.",
+    "empty": "Hələ əlfəcin yoxdur. Kitabxananızı yaratmaq üçün keçid saxlayın və ya CSV idxal edin.",
+    "no-results": "Filtrlərinizə uyğun əlfəcin yoxdur. Filtrləri dəyişin və ya təmizləyin.",
+    "search-placeholder": "Əlfəcinlərdə axtar",
     "import": "İdxal et",
     "import-title": "Əlfəcinləri idxal et",
     "import-description": "Raindrop.io-dan ixrac edilmiş CSV faylını idxal edin. Hər sətir qovluğu və teqləri ilə birlikdə keçid qeydinə çevrilir.",

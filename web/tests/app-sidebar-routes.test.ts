@@ -37,7 +37,7 @@ describe("sidebar route content", () => {
     expect(getSidebarRouteKind(path)).toBe(kind);
   });
 
-  it.each(["/", "/explore"])("keeps search in the route collection on %s", (path) => {
+  it.each(["/", "/explore", "/bookmarks", "/Bookmarks/"])("keeps search in the route collection on %s", (path) => {
     expect(getRouteActionPolicy(path)).toEqual({
       searchScope: "route-collection",
     });
@@ -49,17 +49,16 @@ describe("sidebar route content", () => {
     });
   });
 
-  it.each(["/attachments", "/calendar/2026/08/02", "/map", "/bookmarks"])("keeps the route scope when %s sends search to Home", (path) => {
+  it.each(["/attachments", "/calendar/2026/08/02", "/map"])("keeps the route scope when %s sends search to Home", (path) => {
     expect(getRouteActionPolicy(path)).toEqual({
       searchScope: "route-collection",
       searchDestination: "/",
     });
   });
 
-  it("keeps Space bookmark search in the same Space", () => {
+  it("keeps Space bookmark search in the same bookmark collection", () => {
     expect(getRouteActionPolicy("/spaces/product/bookmarks")).toEqual({
       searchScope: "route-collection",
-      searchDestination: "/spaces/product",
     });
   });
 

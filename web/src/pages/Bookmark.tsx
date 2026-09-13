@@ -13,6 +13,7 @@ import useCurrentUser from "@/hooks/useCurrentUser";
 import { useCreateMemo } from "@/hooks/useMemoQueries";
 import { buildBookmarkContent, isValidBookmarkUrl } from "@/lib/bookmark";
 import { spaceScopedCacheKey } from "@/lib/resource-names";
+import { ROUTES } from "@/router/routes";
 import { type Memo, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 
@@ -40,6 +41,10 @@ const Bookmark = () => {
   const [inputUrl, setInputUrl] = useState(searchParams.get("url") ?? "");
   const [invalidInput, setInvalidInput] = useState(false);
 
+  const requestedReturnTo = searchParams.get("returnTo") ?? "";
+  const returnTo =
+    requestedReturnTo === ROUTES.BOOKMARKS || requestedReturnTo.startsWith(`${ROUTES.BOOKMARKS}?`) ? requestedReturnTo : ROUTES.HOME;
+  const returnLabel = returnTo === ROUTES.HOME ? t("bookmarks.capture-go-home") : t("memo.back-to", { source: t("common.bookmarks") });
   const url = searchParams.get("url") ?? "";
   const title = searchParams.get("title") ?? "";
   const tagsParam = searchParams.get("tags") ?? "unread";
@@ -155,8 +160,8 @@ const Bookmark = () => {
             </div>
           </div>
           <div className="pt-2">
-            <Link to="/" className="text-sm underline underline-offset-2 hover:text-foreground">
-              {t("bookmarks.capture-go-home")}
+            <Link to={returnTo} className="text-sm underline underline-offset-2 hover:text-foreground">
+              {returnLabel}
             </Link>
           </div>
         </div>
@@ -178,7 +183,8 @@ const Bookmark = () => {
           initialContent={initialContent}
           defaultSpace={selectedSpaceName}
           autoFocus
-          onConfirm={() => navigate("/")}
+          onConfirm={() => navigate(returnTo)}
+          onCancel={() => navigate(returnTo)}
         />
       </div>
     </div>

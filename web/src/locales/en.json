@@ -263,6 +263,10 @@
     "yourself": "Yourself"
   },
   "bookmarks": {
+    "description": "Your saved links, ready to revisit.",
+    "empty": "No bookmarks yet. Save a link or import a CSV to start your library.",
+    "no-results": "No bookmarks match your filters. Try changing or clearing them.",
+    "search-placeholder": "Search bookmarks",
     "import": "Import",
     "import-title": "Import bookmarks",
     "import-description": "Import a Raindrop.io CSV export. Checks saved and archived links across all your Spaces for duplicates.",

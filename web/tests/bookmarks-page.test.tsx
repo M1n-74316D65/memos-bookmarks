@@ -1,13 +1,20 @@
+import { create } from "@bufbuild/protobuf";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { MemoViewProps } from "@/components/MemoView/types";
+import type PagedMemoList from "@/components/PagedMemoList";
 import Bookmarks from "@/pages/Bookmarks";
+import { MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 
 const state = vi.hoisted(() => ({
   spaceFilter: undefined as string | undefined,
   listProps: [] as Array<Record<string, unknown>>,
   refreshCovers: vi.fn(),
+  setQuickFindOpen: vi.fn(),
+  hasActiveFilters: false,
 }));
 
 const refreshResponse = (memosExamined: number, updatedLinks: number, failedLinks: number, nextPageToken = "") => ({
@@ -23,18 +30,25 @@ vi.mock("@/connect", () => ({
 }));
 
 vi.mock("@/components/PagedMemoList", () => ({
-  default: (props: Record<string, unknown>) => {
-    state.listProps.push(props);
-    const renderLeading = props.renderLeading as ((options: { useGrid: boolean }) => React.ReactNode) | undefined;
+  getMemoKey: (memo: { name: string }) => memo.name,
+  default: (props: ComponentProps<typeof PagedMemoList>) => {
+    state.listProps.push({ ...props });
     return (
       <div>
-        {renderLeading?.({ useGrid: false })}
+        <div data-testid="page-header">{props.renderHeader?.({ useGrid: false })}</div>
+        {props.renderLeading?.({ useGrid: false })}
+        {props.renderer(create(MemoSchema, { name: "memos/pinned", pinned: true }), { compact: false, variant: "card" })}
         <div data-testid="list" />
       </div>
     );
   },
 }));
-vi.mock("@/components/MemoView", () => ({ default: () => <div /> }));
+vi.mock("@/components/MemoView", () => ({
+  default: (props: MemoViewProps) => <div data-testid="summary" data-variant={props.variant} data-pinned={props.showPinned} />,
+}));
+vi.mock("@/components/MemoDisplaySettingMenu", () => ({ default: () => <button type="button">View options</button> }));
+vi.mock("@/contexts/AppSidebarContext", () => ({ useAppSidebar: () => ({ setQuickFindOpen: state.setQuickFindOpen }) }));
+vi.mock("@/contexts/MemoFilterContext", () => ({ useMemoFilterContext: () => ({ hasActiveFilters: state.hasActiveFilters }) }));
 vi.mock("@/components/BookmarksImport/BookmarksImportDialog", () => ({ default: () => <div /> }));
 vi.mock("@/hooks", () => ({
   useMemoFilters: () => "creator_filter",
@@ -44,10 +58,10 @@ vi.mock("@/hooks/useCurrentUser", () => ({ default: () => ({ name: "users/u1" })
 vi.mock("@/contexts/SpaceContext", () => ({ useSpaceContext: () => ({ memoFilter: state.spaceFilter }) }));
 vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
 
-const renderPage = () =>
+const renderPage = (entry = "/bookmarks") =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>
         <Bookmarks />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -58,6 +72,37 @@ describe("<Bookmarks>", () => {
     state.spaceFilter = undefined;
     state.listProps = [];
     state.refreshCovers.mockReset();
+    state.setQuickFindOpen.mockReset();
+    state.hasActiveFilters = false;
+  });
+
+  it("places page actions above all columns and keeps single-column bookmarks as pinned summaries", () => {
+    renderPage();
+    expect(screen.getByTestId("page-header")).toContainElement(screen.getByRole("heading", { name: "common.bookmarks" }));
+    expect(screen.getByTestId("summary")).toHaveAttribute("data-variant", "bento");
+    expect(screen.getByTestId("summary")).toHaveAttribute("data-pinned", "true");
+  });
+
+  it("opens existing search from the library toolbar and retains capture origin", () => {
+    renderPage("/bookmarks?filter=tagSearch:reading");
+    fireEvent.click(screen.getByRole("button", { name: "bookmarks.search-placeholder" }));
+    expect(state.setQuickFindOpen).toHaveBeenCalledWith(true);
+    expect(screen.getByRole("link", { name: "common.save-link" })).toHaveAttribute(
+      "href",
+      "/bookmark?returnTo=%2Fbookmarks%3Ffilter%3DtagSearch%3Areading",
+    );
+  });
+
+  it("distinguishes filtered empty results from an empty library", () => {
+    state.hasActiveFilters = true;
+    renderPage();
+    expect(state.listProps[0]?.emptyMessage).toBe("bookmarks.no-results");
+    expect(state.listProps[0]?.emptyActions).toBeUndefined();
+  });
+
+  it("offers capture and import actions in the first-run empty state", () => {
+    renderPage();
+    expect(state.listProps[0]?.emptyActions).toBeDefined();
   });
 
   it("feeds only link memos via the has_link filter", () => {

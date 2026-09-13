@@ -54,6 +54,8 @@ interface Props {
   renderHeader?: (options: { useGrid: boolean }) => ReactNode;
   /** Replaces the generic empty-state message when the route knows why the list is empty. */
   emptyMessage?: string;
+  /** Optional route-owned actions shown with the empty-state message. */
+  emptyActions?: ReactNode;
 }
 
 function useAutoFetchWhenNotScrollable({
@@ -235,7 +237,9 @@ const PagedMemoList = (props: Props) => {
 
   const emptyPlaceholder =
     !isDisplayPending && !isError && !isFetchingNextPage && !hasNextPage && displayMemoList.length === 0 ? (
-      <Placeholder variant="empty" message={props.emptyMessage ?? t("message.no-data")} className="w-full" />
+      <Placeholder variant="empty" message={props.emptyMessage ?? t("message.no-data")} className="w-full">
+        {props.emptyActions}
+      </Placeholder>
     ) : null;
   const initialLoader = isDisplayPending && showLoader ? <Loader /> : null;
   // Only a query the user typed can be edited or cleared from the error; facet and scope
