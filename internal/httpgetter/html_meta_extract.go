@@ -33,6 +33,7 @@ type documentMetadata struct {
 	standard  metadataSource
 	semantic  metadataSource
 	baseHref  string
+	favicon   string
 }
 
 func extractDocumentMetadata(document *html.Node) (documentMetadata, string) {
@@ -79,6 +80,9 @@ func extractDocumentMetadata(document *html.Node) (documentMetadata, string) {
 			}
 		case "link":
 			rels := strings.Fields(strings.ToLower(firstAttribute(node, "rel")))
+			if containsString(rels, "icon") || containsString(rels, "apple-touch-icon") {
+				setIfEmpty(&sources.favicon, firstAttribute(node, "href"))
+			}
 			if containsString(rels, "image_src") {
 				setImageIfEmpty(&sources.standard.image, firstAttribute(node, "href"))
 			}
@@ -312,6 +316,21 @@ func resolveHTTPURL(baseURL *url.URL, candidate string) string {
 		return ""
 	}
 	return parsed.String()
+}
+
+func resolveFaviconURL(baseURL, pageURL *url.URL, candidate string) string {
+	if resolved := resolveHTTPURL(baseURL, candidate); resolved != "" {
+		return resolved
+	}
+	if pageURL == nil {
+		return ""
+	}
+	fallback := *pageURL
+	fallback.Path = "/favicon.ico"
+	fallback.RawPath = ""
+	fallback.RawQuery = ""
+	fallback.Fragment = ""
+	return fallback.String()
 }
 
 func walkNodes(node *html.Node, visit func(*html.Node)) {

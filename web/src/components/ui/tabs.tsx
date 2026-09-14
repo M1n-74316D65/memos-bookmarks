@@ -1,3 +1,4 @@
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { cva } from "class-variance-authority";
 import { createContext, useContext } from "react";
 import { cn } from "@/lib/utils";
@@ -5,8 +6,6 @@ import { cn } from "@/lib/utils";
 type TabsVariant = "segmented" | "underline";
 
 interface TabsContextValue {
-  value: string;
-  onValueChange: (value: string) => void;
   variant: TabsVariant;
 }
 
@@ -31,7 +30,7 @@ const tabsListVariants = cva("flex flex-row", {
 });
 
 const tabsTriggerVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "inline-flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -42,20 +41,26 @@ const tabsTriggerVariants = cva(
     },
     compoundVariants: [
       { variant: "segmented", active: true, className: "bg-background text-foreground shadow-sm" },
-      { variant: "segmented", active: false, className: "text-muted-foreground hover:bg-background/50 hover:text-foreground" },
+      {
+        variant: "segmented",
+        active: false,
+        className:
+          "text-muted-foreground hover:bg-background/50 hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm",
+      },
       { variant: "underline", active: true, className: "border-primary bg-primary/5 text-primary" },
       {
         variant: "underline",
         active: false,
         // The inactive tab is a quiet control: the same resting ink and hover wash as the button kit's `quiet` variant.
-        className: "border-transparent text-muted-foreground/70 hover:bg-muted/60 hover:text-foreground",
+        className:
+          "border-transparent text-muted-foreground/70 hover:bg-muted/60 hover:text-foreground data-active:border-primary data-active:bg-primary/5 data-active:text-primary",
       },
     ],
     defaultVariants: { variant: "segmented", active: false },
   },
 );
 
-interface TabsProps extends Omit<React.ComponentProps<"div">, "onChange"> {
+interface TabsProps extends Omit<TabsPrimitive.Root.Props, "onValueChange" | "value"> {
   value: string;
   onValueChange: (value: string) => void;
   variant?: TabsVariant;
@@ -63,37 +68,22 @@ interface TabsProps extends Omit<React.ComponentProps<"div">, "onChange"> {
 
 function Tabs({ value, onValueChange, variant = "segmented", children, ...props }: TabsProps) {
   return (
-    <TabsContext.Provider value={{ value, onValueChange, variant }}>
-      <div {...props}>{children}</div>
+    <TabsContext.Provider value={{ variant }}>
+      <TabsPrimitive.Root value={value} onValueChange={(nextValue) => typeof nextValue === "string" && onValueChange(nextValue)} {...props}>
+        {children}
+      </TabsPrimitive.Root>
     </TabsContext.Provider>
   );
 }
 
-function TabsList({ className, ...props }: React.ComponentProps<"div">) {
+function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
   const { variant } = useTabsContext();
-  return <div role="tablist" className={cn(tabsListVariants({ variant }), className)} {...props} />;
+  return <TabsPrimitive.List activateOnFocus className={cn(tabsListVariants({ variant }), className)} {...props} />;
 }
 
-interface TabsTriggerProps extends Omit<React.ComponentProps<"button">, "value"> {
-  value: string;
-}
-
-function TabsTrigger({ value, className, onClick, ...props }: TabsTriggerProps) {
-  const { value: activeValue, onValueChange, variant } = useTabsContext();
-  const active = activeValue === value;
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={(event) => {
-        onValueChange(value);
-        onClick?.(event);
-      }}
-      className={cn(tabsTriggerVariants({ variant, active }), className)}
-      {...props}
-    />
-  );
+function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
+  const { variant } = useTabsContext();
+  return <TabsPrimitive.Tab className={cn(tabsTriggerVariants({ variant }), className)} {...props} />;
 }
 
 export type { TabsVariant };

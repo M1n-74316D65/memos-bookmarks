@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/usememos/memos/internal/httpgetter"
 	v1pb "github.com/usememos/memos/proto/gen/api/v1"
 
 	storepb "github.com/usememos/memos/proto/gen/store"
@@ -38,6 +39,7 @@ const (
 	// retryWindow caps link fetch retries at 24h after the first failure.
 	retryWindow       = 24 * time.Hour
 	maxCoverBlobBytes = 5 << 20
+	faviconTimeout    = time.Second
 )
 
 func fetchErrorCategory(ctx context.Context, err error) string {
@@ -64,16 +66,9 @@ func backoffDelay(attempts int32) time.Duration {
 	return retryDelays[attempts-1]
 }
 
-// linkMetadataPending reports whether the entry still needs a fetch: either the
-// metadata fetch itself never succeeded, or it succeeded but the cover image is
-// not cached yet.
+// linkMetadataPending reports whether the entry still needs a cached cover.
 func linkMetadataPending(entry *storepb.MemoPayload_LinkMetadata) bool {
-	if entry.Title == "" && entry.Description == "" && entry.Image == "" {
-		// Full failure placeholder. Ambiguous with a page that legitimately has
-		// no metadata — bounded by retryWindow, so harmless.
-		return true
-	}
-	return entry.Image != "" && entry.CoverAttachmentUid == ""
+	return entry.CoverAttachmentUid == ""
 }
 
 // prepareRetry decides whether a pending entry may be retried now. Entries
@@ -221,6 +216,25 @@ func (s *APIV1Service) RefreshMemoLinkCovers(ctx context.Context, req *v1pb.Refr
 				}
 				if entry.CoverAttachmentUid != "" {
 					if s.linkCoverHealthy(refreshCtx, user.ID, entry.CoverAttachmentUid) {
+						if entry.Image == "" {
+							meta, err := s.linkMetadataFetcher.GetFresh(refreshCtx, entry.Url)
+							if err != nil {
+								memoFailed++
+								continue
+							}
+							if meta.Image != "" {
+								uid, width, height := s.cacheLinkCover(refreshCtx, user.ID, entry.Url, meta.Image)
+								if uid == "" {
+									memoFailed++
+									continue
+								}
+								entry.Image, entry.CoverAttachmentUid = meta.Image, uid
+								entry.CoverWidth, entry.CoverHeight = width, height
+								changed = true
+								memoUpdated++
+								continue
+							}
+						}
 						memoSkipped++
 						continue
 					}
@@ -312,8 +326,10 @@ func (s *APIV1Service) backfillCoverDimensions(ctx context.Context, entry *store
 // entry has no image URL (a page may have added an og:image since the last fetch),
 // then caches the cover image when one is available.
 func (s *APIV1Service) retryLink(ctx context.Context, creatorID int32, entry *storepb.MemoPayload_LinkMetadata, now time.Time) {
+	var meta *httpgetter.HTMLMeta
 	if entry.Image == "" {
-		meta, err := s.linkMetadataFetcher.Get(ctx, entry.Url)
+		var err error
+		meta, err = s.linkMetadataFetcher.Get(ctx, entry.Url)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || ctx.Err() != nil {
 				return
@@ -331,6 +347,11 @@ func (s *APIV1Service) retryLink(ctx context.Context, creatorID int32, entry *st
 			entry.CoverAttachmentUid = uid
 			entry.CoverWidth = width
 			entry.CoverHeight = height
+		} else if uid, width, height := s.cacheGeneratedLinkCover(ctx, creatorID, entry.Url, &httpgetter.HTMLMeta{}, false); uid != "" {
+			entry.Image = ""
+			entry.CoverAttachmentUid = uid
+			entry.CoverWidth = width
+			entry.CoverHeight = height
 		} else {
 			if ctx.Err() != nil {
 				return
@@ -338,6 +359,16 @@ func (s *APIV1Service) retryLink(ctx context.Context, creatorID int32, entry *st
 			recordRetryFailure(entry, now)
 			return
 		}
+	} else if uid, width, height := s.cacheGeneratedLinkCover(ctx, creatorID, entry.Url, meta, false); uid != "" {
+		entry.CoverAttachmentUid = uid
+		entry.CoverWidth = width
+		entry.CoverHeight = height
+	} else {
+		if ctx.Err() != nil {
+			return
+		}
+		recordRetryFailure(entry, now)
+		return
 	}
 	clearRetryState(entry)
 }
@@ -360,11 +391,25 @@ func (s *APIV1Service) enrichLink(ctx context.Context, creatorID int32, url stri
 			entry.CoverWidth = width
 			entry.CoverHeight = height
 		} else {
-			// Cover fetch failed on the first attempt: start the retry window.
-			entry.FetchAttempts = 1
-			entry.FirstAttemptAt = now.Unix()
-			entry.LastAttemptAt = now.Unix()
+			if uid, width, height := s.cacheGeneratedLinkCover(ctx, creatorID, url, meta, false); uid != "" {
+				entry.Image = ""
+				entry.CoverAttachmentUid = uid
+				entry.CoverWidth = width
+				entry.CoverHeight = height
+			} else {
+				entry.FetchAttempts = 1
+				entry.FirstAttemptAt = now.Unix()
+				entry.LastAttemptAt = now.Unix()
+			}
 		}
+	} else if uid, width, height := s.cacheGeneratedLinkCover(ctx, creatorID, url, meta, false); uid != "" {
+		entry.CoverAttachmentUid = uid
+		entry.CoverWidth = width
+		entry.CoverHeight = height
+	} else if ctx.Err() == nil {
+		entry.FetchAttempts = 1
+		entry.FirstAttemptAt = now.Unix()
+		entry.LastAttemptAt = now.Unix()
 	}
 	return entry
 }
@@ -381,6 +426,53 @@ func (s *APIV1Service) cacheLinkCover(ctx context.Context, creatorID int32, page
 
 func (s *APIV1Service) cacheLinkCoverCandidate(ctx context.Context, creatorID int32, pageURL string, imageURL string, repair bool) (uid string, width int32, height int32) {
 	filename := coverFilename(pageURL, imageURL)
+	if uid, width, height, ok := s.cachedLinkCover(ctx, creatorID, filename, repair); ok {
+		return uid, width, height
+	}
+
+	image, err := s.linkMetadataFetcher.GetImage(ctx, imageURL)
+	if err != nil {
+		slog.Warn("failed to fetch link cover image", "category", fetchErrorCategory(ctx, err))
+		return "", 0, 0
+	}
+	return s.storeLinkCover(ctx, creatorID, filename, image.Blob, image.Mediatype, repair)
+}
+
+func (s *APIV1Service) cacheGeneratedLinkCover(
+	ctx context.Context,
+	creatorID int32,
+	pageURL string,
+	meta *httpgetter.HTMLMeta,
+	repair bool,
+) (uid string, width int32, height int32) {
+	if meta == nil {
+		return "", 0, 0
+	}
+	filename := coverFilename(pageURL, "generated-"+meta.Favicon+".png")
+	if uid, width, height, ok := s.cachedLinkCover(ctx, creatorID, filename, repair); ok {
+		return uid, width, height
+	}
+	var favicon []byte
+	if meta.Favicon != "" {
+		faviconCtx, cancel := context.WithTimeout(ctx, faviconTimeout)
+		defer cancel()
+		if image, err := s.linkMetadataFetcher.GetImage(faviconCtx, meta.Favicon); err == nil {
+			favicon = image.Blob
+		}
+	}
+	blob, err := generateLinkFallbackCover(pageURL, favicon)
+	if err != nil {
+		return "", 0, 0
+	}
+	return s.storeLinkCover(ctx, creatorID, filename, blob, "image/png", repair)
+}
+
+func (s *APIV1Service) cachedLinkCover(
+	ctx context.Context,
+	creatorID int32,
+	filename string,
+	repair bool,
+) (uid string, width int32, height int32, ok bool) {
 	limit := 1
 	found, err := s.Store.ListAttachments(ctx, &store.FindAttachment{Filename: &filename, CreatorID: &creatorID, Limit: &limit})
 	if err != nil {
@@ -390,23 +482,28 @@ func (s *APIV1Service) cacheLinkCoverCandidate(ctx context.Context, creatorID in
 		if existing.Payload != nil && existing.Payload.GetMediaMetadata() != nil {
 			mm := existing.Payload.GetMediaMetadata()
 			if mm.GetWidth() > 0 && mm.GetHeight() > 0 {
-				return existing.UID, mm.GetWidth(), mm.GetHeight()
+				return existing.UID, mm.GetWidth(), mm.GetHeight(), true
 			}
 		}
-		return existing.UID, width, height
+		return existing.UID, 0, 0, true
 	}
+	return "", 0, 0, false
+}
 
-	image, err := s.linkMetadataFetcher.GetImage(ctx, imageURL)
-	if err != nil {
-		slog.Warn("failed to fetch link cover image", "category", fetchErrorCategory(ctx, err))
-		return "", 0, 0
-	}
+func (s *APIV1Service) storeLinkCover(
+	ctx context.Context,
+	creatorID int32,
+	filename string,
+	blob []byte,
+	mediaType string,
+	repair bool,
+) (uid string, width int32, height int32) {
 	validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := s.coverValidationSemaphore.Acquire(validationCtx, 1); err != nil {
 		return "", 0, 0
 	}
-	width, height, err = validateLinkCover(image.Blob)
+	width, height, err := validateLinkCover(blob)
 	s.coverValidationSemaphore.Release(1)
 	if err != nil || validationCtx.Err() != nil {
 		return "", 0, 0
@@ -415,8 +512,8 @@ func (s *APIV1Service) cacheLinkCoverCandidate(ctx context.Context, creatorID in
 		UID:       shortuuid.New(),
 		CreatorID: creatorID,
 		Filename:  filename,
-		Type:      image.Mediatype,
-		Size:      int64(len(image.Blob)),
+		Type:      mediaType,
+		Size:      int64(len(blob)),
 		Payload: &storepb.AttachmentPayload{
 			MediaMetadata: &storepb.MediaMetadata{
 				Width:  proto.Int32(width),
@@ -429,7 +526,7 @@ func (s *APIV1Service) cacheLinkCoverCandidate(ctx context.Context, creatorID in
 		slog.Warn("failed to get link cover storage setting", "operation", "cover_storage_setting")
 		return "", 0, 0
 	}
-	if err := saveAttachmentContentWithIsolation(ctx, s.Profile, s.Store, create, setting, bytes.NewReader(image.Blob), repair); err != nil {
+	if err := saveAttachmentContentWithIsolation(ctx, s.Profile, s.Store, create, setting, bytes.NewReader(blob), repair); err != nil {
 		slog.Warn("failed to save link cover blob", "operation", "cover_store")
 		return "", 0, 0
 	}
@@ -488,17 +585,31 @@ func (s *APIV1Service) linkCoverHealthy(ctx context.Context, creatorID int32, ui
 }
 
 func (s *APIV1Service) repairLinkCover(ctx context.Context, creatorID int32, entry *storepb.MemoPayload_LinkMetadata) bool {
-	uid, width, height := s.cacheLinkCoverCandidate(ctx, creatorID, entry.Url, entry.Image, true)
+	var uid string
+	var width, height int32
+	if entry.Image != "" {
+		uid, width, height = s.cacheLinkCoverCandidate(ctx, creatorID, entry.Url, entry.Image, true)
+	}
 	if uid == "" {
 		meta, err := s.linkMetadataFetcher.GetFresh(ctx, entry.Url)
-		if err != nil || meta == nil || meta.Image == "" || meta.Image == entry.Image {
+		if err != nil || meta == nil {
 			return false
 		}
-		uid, width, height = s.cacheLinkCoverCandidate(ctx, creatorID, entry.Url, meta.Image, true)
+		if meta.Image != "" {
+			uid, width, height = s.cacheLinkCoverCandidate(ctx, creatorID, entry.Url, meta.Image, true)
+			if uid != "" {
+				entry.Image = meta.Image
+			} else {
+				uid, width, height = s.cacheGeneratedLinkCover(ctx, creatorID, entry.Url, meta, true)
+				entry.Image = ""
+			}
+		} else {
+			uid, width, height = s.cacheGeneratedLinkCover(ctx, creatorID, entry.Url, meta, true)
+			entry.Image = ""
+		}
 		if uid == "" {
 			return false
 		}
-		entry.Image = meta.Image
 	}
 	entry.CoverAttachmentUid, entry.CoverWidth, entry.CoverHeight = uid, width, height
 	clearRetryState(entry)

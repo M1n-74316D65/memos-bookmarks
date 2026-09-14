@@ -83,11 +83,13 @@ func TestExtractDocumentMetadataPrecedenceAndFallbacks(t *testing.T) {
 			markup: `<html><head><title>Standard title</title>
 				<meta NAME="Description" content="Standard description">
 				<link rel="IMAGE_SRC" href="/standard.png">
+				<link rel="icon" href="/favicon.png">
 			</head></html>`,
 			expected: HTMLMeta{
 				Title:       "Standard title",
 				Description: "Standard description",
 				Image:       "https://example.com/standard.png",
+				Favicon:     "https://example.com/favicon.png",
 			},
 		},
 		{
@@ -184,6 +186,7 @@ func TestHTMLMetaFetcherOEmbed(t *testing.T) {
 		Title:       "oEmbed title",
 		Description: "oEmbed description",
 		Image:       "http://93.184.216.34/oembed.png",
+		Favicon:     "http://93.184.216.34/favicon.ico",
 	}, meta)
 	require.EqualValues(t, 2, requests.Load())
 }
@@ -521,7 +524,9 @@ func extractTestMetadata(t *testing.T, markup string) *HTMLMeta {
 	sources, _ := extractDocumentMetadata(document)
 	pageURL, err := url.Parse("https://example.com/posts/page")
 	require.NoError(t, err)
-	return mergeMetadata(pageURL, metadataSource{}, sources.openGraph, sources.twitter, sources.jsonLD, sources.standard, sources.semantic)
+	meta := mergeMetadata(pageURL, metadataSource{}, sources.openGraph, sources.twitter, sources.jsonLD, sources.standard, sources.semantic)
+	meta.Favicon = resolveHTTPURL(pageURL, sources.favicon)
+	return meta
 }
 
 func newTestFetcher(transport http.RoundTripper) *HTMLMetaFetcher {

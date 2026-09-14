@@ -11,7 +11,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ userTagsSetting: create(UserSetting_TagsSettingSchema, { tags: { sensitive: { blurContent: true } } }) }),
 }));
 vi.mock("@/contexts/SpaceContext", () => ({ useSpaceContext: () => ({ duplicateSpaceTitles: new Set(), spaceByName: new Map() }) }));
-vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
+vi.mock("@/utils/i18n", () => ({ findNearestMatchedLanguage: () => "en", useTranslate: () => (key: string) => key }));
 vi.mock("@/hooks/useCurrentUser", () => ({ default: () => ({ name: "users/me" }) }));
 vi.mock("@/hooks/useNavigateTo", () => ({ default: () => vi.fn() }));
 vi.mock("@/components/MemoView/hooks", () => ({

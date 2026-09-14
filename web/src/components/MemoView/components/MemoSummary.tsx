@@ -1,6 +1,8 @@
+import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { ArrowUpRightIcon, BookmarkIcon, EyeIcon, FileTextIcon, PinIcon } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import RelativeTime from "@/components/RelativeTime";
 import { Button } from "@/components/ui/button";
 import VisibilityIcon from "@/components/VisibilityIcon";
 import { cn } from "@/lib/utils";
@@ -35,6 +37,8 @@ const MemoSummary = ({ showCreator, showPinned, showSpace, showVisibility }: Mem
   const sourceUrl = getBentoTileSourceUrl(memo);
   const visibilityOption = getVisibilityOption(memo.visibility);
   const SummaryIcon = sourceUrl ? BookmarkIcon : FileTextIcon;
+  const createTime = memo.createTime ? timestampDate(memo.createTime) : undefined;
+  const visibleTags = memo.tags.slice(0, 2);
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
@@ -74,31 +78,52 @@ const MemoSummary = ({ showCreator, showPinned, showSpace, showVisibility }: Mem
             {showCreator && creator && (
               <p className="mt-1 truncate text-xs leading-4 text-muted-foreground">{creator.displayName || creator.username}</p>
             )}
+            {visibleTags.length > 0 && (
+              <div className="mt-1.5 flex min-w-0 items-center gap-1 overflow-hidden text-[11px] leading-4 text-primary/80">
+                {visibleTags.map((tag) => (
+                  <span key={tag} className="max-w-24 shrink truncate rounded-full bg-primary/10 px-1.5">
+                    #{tag}
+                  </span>
+                ))}
+                {memo.tags.length > visibleTags.length && (
+                  <span className="shrink-0 text-muted-foreground">+{memo.tags.length - visibleTags.length}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </Link>
-      {(sourceUrl || (showSpace && memo.space) || (showPinned && memo.pinned) || (showVisibility && visibilityOption)) && (
-        <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/60 bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground">
+      {(sourceUrl || createTime || (showSpace && memo.space) || (showPinned && memo.pinned) || (showVisibility && visibilityOption)) && (
+        <div className="flex min-w-0 shrink-0 items-center gap-3 overflow-hidden border-t border-border/60 bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground">
           {sourceUrl && (
             <a
               href={sourceUrl.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-w-0 max-w-full items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-w-0 flex-1 items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="truncate font-mono">{sourceUrl.hostname.replace(/^www\./, "")}</span>
               <ArrowUpRightIcon aria-hidden className="size-3 shrink-0" />
             </a>
           )}
-          {showSpace && memo.space && <MemoSpaceBadge spaceName={memo.space} />}
+          {createTime && (
+            <span className="shrink-0" title={`${t("common.created-at")}: ${createTime.toLocaleString()}`}>
+              <RelativeTime date={createTime} />
+            </span>
+          )}
+          {showSpace && memo.space && (
+            <span className="hidden min-w-0 @min-[520px]/card:block">
+              <MemoSpaceBadge spaceName={memo.space} />
+            </span>
+          )}
           {showVisibility && visibilityOption && (
-            <span className="flex items-center gap-1">
+            <span className="hidden shrink-0 items-center gap-1 @min-[320px]/card:flex">
               <VisibilityIcon visibility={memo.visibility} className="size-3" />
               {t(visibilityOption.labelKey)}
             </span>
           )}
           {showPinned && memo.pinned && (
-            <span className="flex items-center gap-1 text-primary">
+            <span className="hidden shrink-0 items-center gap-1 text-primary @min-[400px]/card:flex">
               <PinIcon aria-hidden className="size-3" />
               {t("common.pinned")}
             </span>

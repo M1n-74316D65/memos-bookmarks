@@ -1,13 +1,14 @@
 import { BookmarkIcon, CheckIcon, ImportIcon, PlusIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import BookmarksImportDialog from "@/components/BookmarksImport/BookmarksImportDialog";
 import MemoDisplaySettingMenu from "@/components/MemoDisplaySettingMenu";
 import MemoView from "@/components/MemoView";
 import PagedMemoList, { getMemoKey } from "@/components/PagedMemoList";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppSidebar } from "@/contexts/AppSidebarContext";
-import { useMemoFilterContext } from "@/contexts/MemoFilterContext";
+import { type MemoFilter, stringifyFilters, useMemoFilterContext } from "@/contexts/MemoFilterContext";
 import { useSpaceContext } from "@/contexts/SpaceContext";
 import { useMemoFilters, useMemoSorting } from "@/hooks";
 import { useBookmarkCoverRefresh } from "@/hooks/useBookmarkCoverRefresh";
@@ -64,16 +65,55 @@ const HeaderAction = ({
   );
 };
 
+type BookmarkView = "all" | "unread" | "favorites" | "archive";
+
+const isUnreadFilter = (filter: MemoFilter) => filter.factor === "tagSearch" && filter.value === "unread";
+const isBookmarkViewFilter = (filter: MemoFilter) => isUnreadFilter(filter) || filter.factor === "pinned";
+
 const Bookmarks = () => {
   const user = useCurrentUser();
   const t = useTranslate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setQuickFindOpen } = useAppSidebar();
-  const { hasActiveFilters } = useMemoFilterContext();
+  const { filters, hasActiveFilters } = useMemoFilterContext();
   const { memoFilter: spaceFilter } = useSpaceContext();
   const [importOpen, setImportOpen] = useState(false);
   const { coverRefresh, refreshCovers, cancelRefresh } = useBookmarkCoverRefresh();
   const capturePath = `${ROUTES.BOOKMARK}?returnTo=${encodeURIComponent(location.pathname + location.search)}`;
+  const bookmarkView: BookmarkView =
+    searchParams.get("view") === "archive"
+      ? "archive"
+      : filters.some((filter) => filter.factor === "pinned")
+        ? "favorites"
+        : filters.some(isUnreadFilter)
+          ? "unread"
+          : "all";
+  const memoState = bookmarkView === "archive" ? State.ARCHIVED : State.NORMAL;
+
+  const changeBookmarkView = (view: string) => {
+    const nextView = view as BookmarkView;
+    const nextFilters = filters.filter((filter) => !isBookmarkViewFilter(filter));
+    if (nextView === "unread") {
+      nextFilters.push({ factor: "tagSearch", value: "unread" });
+    } else if (nextView === "favorites") {
+      nextFilters.push({ factor: "pinned", value: "" });
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    const nextFilterQuery = stringifyFilters(nextFilters);
+    if (nextFilterQuery) {
+      nextSearchParams.set("filter", nextFilterQuery);
+    } else {
+      nextSearchParams.delete("filter");
+    }
+    if (nextView === "archive") {
+      nextSearchParams.set("view", "archive");
+    } else {
+      nextSearchParams.delete("view");
+    }
+    setSearchParams(nextSearchParams, { replace: true });
+  };
 
   const memoFilter = useMemoFilters({
     creatorName: user?.name,
@@ -83,7 +123,7 @@ const Bookmarks = () => {
 
   const { listSort, orderBy } = useMemoSorting({
     pinnedFirst: true,
-    state: State.NORMAL,
+    state: memoState,
   });
 
   const refreshStatus =
@@ -126,13 +166,15 @@ const Bookmarks = () => {
               />
             )}
             listSort={listSort}
-            state={State.NORMAL}
+            state={memoState}
             orderBy={orderBy}
             filter={memoFilter}
             contextFilter={combineCELFilters("has_link", spaceFilter)}
-            emptyMessage={t(hasActiveFilters ? "bookmarks.no-results" : "bookmarks.empty")}
+            emptyMessage={t(
+              bookmarkView === "archive" ? "bookmarks.empty-archive" : hasActiveFilters ? "bookmarks.no-results" : "bookmarks.empty",
+            )}
             emptyActions={
-              !hasActiveFilters ? (
+              bookmarkView === "all" && !hasActiveFilters ? (
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <Link to={capturePath} className={cn(buttonVariants({ size: "sm" }), "h-10 px-3 sm:h-7 sm:px-2")}>
                     <PlusIcon aria-hidden className="size-3.5" />
@@ -170,6 +212,22 @@ const Bookmarks = () => {
                     />
                   </div>
                 </div>
+                <Tabs value={bookmarkView} onValueChange={changeBookmarkView}>
+                  <TabsList aria-label={t("bookmarks.views-label")} className="w-full overflow-x-auto rounded-lg bg-muted/60 p-1 sm:w-fit">
+                    <TabsTrigger value="all" className="h-10 min-w-fit flex-1 px-3 sm:h-8 sm:flex-none">
+                      {t("common.all")}
+                    </TabsTrigger>
+                    <TabsTrigger value="unread" className="h-10 min-w-fit flex-1 px-3 sm:h-8 sm:flex-none">
+                      {t("bookmarks.unread")}
+                    </TabsTrigger>
+                    <TabsTrigger value="favorites" className="h-10 min-w-fit flex-1 px-3 sm:h-8 sm:flex-none">
+                      {t("bookmarks.favorites")}
+                    </TabsTrigger>
+                    <TabsTrigger value="archive" className="h-10 min-w-fit flex-1 px-3 sm:h-8 sm:flex-none">
+                      {t("bookmarks.archive")}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
                 <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-card/60 p-1 shadow-xs">
                   <button
                     type="button"

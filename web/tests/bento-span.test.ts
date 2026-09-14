@@ -50,6 +50,16 @@ describe("bentoCover text extraction", () => {
     expect(getBentoTileSnippet(memo)).toBe("");
   });
 
+  it("uses captured link descriptions without leaking tag-only lines", async () => {
+    const { getBentoTileSnippet } = await import("@/components/MemoView/bentoCover");
+    const memo = buildMemo({
+      content: "[Design systems](https://example.com/design)\n#unread #design",
+      property: { links: [{ url: "https://example.com/design", description: "A practical guide to resilient design systems." }] },
+    });
+
+    expect(getBentoTileSnippet(memo)).toBe("A practical guide to resilient design systems.");
+  });
+
   it("keeps capture tags out of bookmark titles when metadata is unavailable", async () => {
     const { getBentoTileTitle } = await import("@/components/MemoView/bentoCover");
     const memo = buildMemo({ content: "[Designing calm interfaces](https://example.com/article) #unread #design" });

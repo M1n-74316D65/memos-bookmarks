@@ -265,7 +265,12 @@
   "bookmarks": {
     "description": "Your saved links, ready to revisit.",
     "empty": "No bookmarks yet. Save a link or import a CSV to start your library.",
+    "empty-archive": "No archived bookmarks.",
     "no-results": "No bookmarks match your filters. Try changing or clearing them.",
+    "views-label": "Bookmark views",
+    "unread": "Unread",
+    "favorites": "Favorites",
+    "archive": "Archive",
     "search-placeholder": "Search bookmarks",
     "import": "Import",
     "import-title": "Import bookmarks",

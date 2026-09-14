@@ -154,6 +154,7 @@ type HTMLMeta struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Image       string `json:"image"`
+	Favicon     string `json:"-"`
 }
 
 type cacheEntry struct {
@@ -354,6 +355,7 @@ func (f *HTMLMetaFetcher) fetch(ctx context.Context, urlStr string) (*HTMLMeta, 
 	}
 
 	meta := mergeMetadata(baseURL, oEmbed, sources.openGraph, sources.twitter, sources.jsonLD, sources.standard, sources.semantic)
+	meta.Favicon = resolveFaviconURL(baseURL, pageURL, sources.favicon)
 	return meta, nil
 }
 

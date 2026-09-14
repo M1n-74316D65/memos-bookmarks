@@ -169,7 +169,7 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
         MEMO_CARD_BASE_CLASSES,
         showCommentPreview ? "mb-0 rounded-b-none" : "mb-2",
         variant === "bento" &&
-          "mb-0 overflow-hidden rounded-xl border-border/70 p-0 transition-[border-color,background-color] hover:border-foreground/25 focus-within:border-ring/50",
+          "@container/card mb-0 overflow-hidden rounded-xl border-border/70 p-0 transition-[border-color,background-color] hover:border-foreground/25 focus-within:border-ring/50",
         className,
       )}
       ref={cardRef}

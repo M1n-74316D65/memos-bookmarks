@@ -2,11 +2,13 @@ import { create } from "@bufbuild/protobuf";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MemoViewProps } from "@/components/MemoView/types";
 import type PagedMemoList from "@/components/PagedMemoList";
+import type { MemoFilter } from "@/contexts/MemoFilterContext";
 import Bookmarks from "@/pages/Bookmarks";
+import { State } from "@/types/proto/api/v1/common_pb";
 import { MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 
 const state = vi.hoisted(() => ({
@@ -15,6 +17,8 @@ const state = vi.hoisted(() => ({
   refreshCovers: vi.fn(),
   setQuickFindOpen: vi.fn(),
   hasActiveFilters: false,
+  filters: [] as MemoFilter[],
+  locationSearch: "",
 }));
 
 const refreshResponse = (memosExamined: number, updatedLinks: number, failedLinks: number, nextPageToken = "") => ({
@@ -48,7 +52,10 @@ vi.mock("@/components/MemoView", () => ({
 }));
 vi.mock("@/components/MemoDisplaySettingMenu", () => ({ default: () => <button type="button">View options</button> }));
 vi.mock("@/contexts/AppSidebarContext", () => ({ useAppSidebar: () => ({ setQuickFindOpen: state.setQuickFindOpen }) }));
-vi.mock("@/contexts/MemoFilterContext", () => ({ useMemoFilterContext: () => ({ hasActiveFilters: state.hasActiveFilters }) }));
+vi.mock("@/contexts/MemoFilterContext", () => ({
+  stringifyFilters: (filters: MemoFilter[]) => filters.map((filter) => `${filter.factor}:${encodeURIComponent(filter.value)}`).join(","),
+  useMemoFilterContext: () => ({ filters: state.filters, hasActiveFilters: state.hasActiveFilters }),
+}));
 vi.mock("@/components/BookmarksImport/BookmarksImportDialog", () => ({ default: () => <div /> }));
 vi.mock("@/hooks", () => ({
   useMemoFilters: () => "creator_filter",
@@ -58,10 +65,16 @@ vi.mock("@/hooks/useCurrentUser", () => ({ default: () => ({ name: "users/u1" })
 vi.mock("@/contexts/SpaceContext", () => ({ useSpaceContext: () => ({ memoFilter: state.spaceFilter }) }));
 vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
 
+const LocationObserver = () => {
+  state.locationSearch = useLocation().search;
+  return null;
+};
+
 const renderPage = (entry = "/bookmarks") =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[entry]}>
+        <LocationObserver />
         <Bookmarks />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -74,6 +87,8 @@ describe("<Bookmarks>", () => {
     state.refreshCovers.mockReset();
     state.setQuickFindOpen.mockReset();
     state.hasActiveFilters = false;
+    state.filters = [];
+    state.locationSearch = "";
   });
 
   it("places page actions above all columns and keeps single-column bookmarks as pinned summaries", () => {
@@ -116,6 +131,27 @@ describe("<Bookmarks>", () => {
     renderPage();
 
     expect(state.listProps[0]?.contextFilter).toBe('(has_link) && (space == "spaces/s1")');
+  });
+
+  it("switches between unread and favorites without discarding unrelated filters", () => {
+    state.filters = [
+      { factor: "contentSearch", value: "design" },
+      { factor: "tagSearch", value: "unread" },
+    ];
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "bookmarks.favorites" }));
+
+    expect(new URLSearchParams(state.locationSearch).get("filter")).toBe("contentSearch:design,pinned:");
+  });
+
+  it("keeps archived bookmarks inside the library shell", () => {
+    renderPage("/bookmarks?view=archive");
+
+    expect(screen.getByRole("tab", { name: "bookmarks.archive" })).toHaveAttribute("aria-selected", "true");
+    expect(state.listProps.at(-1)?.state).toBe(State.ARCHIVED);
+    expect(state.listProps.at(-1)?.emptyMessage).toBe("bookmarks.empty-archive");
+    expect(state.listProps.at(-1)?.emptyActions).toBeUndefined();
   });
 
   it("surfaces the cover refresh result after clicking update covers", async () => {

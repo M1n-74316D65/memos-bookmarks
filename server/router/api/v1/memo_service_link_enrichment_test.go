@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/png"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -96,6 +98,52 @@ func TestEnrichMemoLinksPersistsMetadata(t *testing.T) {
 	blob, err := service.GetAttachmentBlob(context.Background(), cover)
 	require.NoError(t, err)
 	require.Equal(t, validCoverPNG, blob)
+}
+
+func TestEnrichMemoLinksGeneratesFallbackCoverWithoutPageImage(t *testing.T) {
+	service := newLinkEnrichmentTestService(t, stubFetchResults{
+		metas: map[string]*httpgetter.HTMLMeta{
+			"https://example.com/article": {Title: "An article without a social image"},
+		},
+	})
+
+	memo := &store.Memo{CreatorID: 1, Content: "https://example.com/article"}
+	require.NoError(t, memopayload.RebuildMemoPayload(context.Background(), memo, service.MarkdownService))
+	service.EnrichMemoLinks(context.Background(), memo)
+
+	require.Len(t, memo.Payload.Links, 1)
+	entry := memo.Payload.Links[0]
+	require.NotEmpty(t, entry.CoverAttachmentUid)
+	require.Equal(t, int32(fallbackCoverWidth), entry.CoverWidth)
+	require.Equal(t, int32(fallbackCoverHeight), entry.CoverHeight)
+	require.Zero(t, entry.FetchAttempts)
+
+	cover, err := service.Store.GetAttachment(context.Background(), &store.FindAttachment{UID: &entry.CoverAttachmentUid, GetBlob: true})
+	require.NoError(t, err)
+	require.Equal(t, "image/png", cover.Type)
+	blob, err := service.GetAttachmentBlob(context.Background(), cover)
+	require.NoError(t, err)
+	config, err := png.DecodeConfig(bytes.NewReader(blob))
+	require.NoError(t, err)
+	require.Equal(t, fallbackCoverWidth, config.Width)
+	require.Equal(t, fallbackCoverHeight, config.Height)
+}
+
+func TestEnrichMemoLinksGeneratesFallbackWhenPageImageFails(t *testing.T) {
+	service := newLinkEnrichmentTestService(t, stubFetchResults{
+		metas: map[string]*httpgetter.HTMLMeta{
+			"https://example.com/article": {Title: "Article", Image: "https://example.com/missing.png"},
+		},
+	})
+
+	memo := &store.Memo{CreatorID: 1, Content: "https://example.com/article"}
+	require.NoError(t, memopayload.RebuildMemoPayload(context.Background(), memo, service.MarkdownService))
+	service.EnrichMemoLinks(context.Background(), memo)
+
+	entry := memo.Payload.Links[0]
+	require.Empty(t, entry.Image, "empty image marks the cached cover as generated")
+	require.NotEmpty(t, entry.CoverAttachmentUid)
+	require.Zero(t, entry.FetchAttempts)
 }
 
 func TestEnrichMemoLinksReusesExistingEntries(t *testing.T) {
@@ -220,7 +268,7 @@ func TestEnrichMemoLinksRetriesMissingCover(t *testing.T) {
 	require.Equal(t, "Example A", entry.Title)
 }
 
-func TestEnrichMemoLinksCoverRetryFailureKeepsMetadata(t *testing.T) {
+func TestEnrichMemoLinksCoverRetryFailureUsesGeneratedFallback(t *testing.T) {
 	imageCount := 0
 	service := newLinkEnrichmentTestService(t, stubCountingFetcher{
 		inner:      stubFetchResults{},
@@ -239,9 +287,10 @@ func TestEnrichMemoLinksCoverRetryFailureKeepsMetadata(t *testing.T) {
 
 	require.Equal(t, 1, imageCount)
 	entry := memo.Payload.Links[0]
-	require.Empty(t, entry.CoverAttachmentUid)
-	require.Equal(t, int32(2), entry.FetchAttempts)
-	require.Equal(t, old, entry.FirstAttemptAt)
+	require.NotEmpty(t, entry.CoverAttachmentUid)
+	require.Empty(t, entry.Image)
+	require.Zero(t, entry.FetchAttempts)
+	require.Zero(t, entry.FirstAttemptAt)
 	require.Equal(t, "Example A", entry.Title)
 }
 
@@ -355,7 +404,7 @@ func TestRefreshMemoLinkCovers(t *testing.T) {
 
 	memo := &store.Memo{UID: shortuuid.New(), CreatorID: user.ID, Visibility: store.Public, Content: "[A](https://example.com/a) [Dead](https://example.com/dead)"}
 	require.NoError(t, memopayload.RebuildMemoPayload(context.Background(), memo, service.MarkdownService))
-	// Two links pending covers: one will succeed, one will fail again.
+	// Two links pending covers: one will use its image, one a generated fallback.
 	memo.Payload.Links = []*storepb.MemoPayload_LinkMetadata{
 		{Url: "https://example.com/a", Title: "A", Image: "https://example.com/a.png", FetchAttempts: 8, FirstAttemptAt: time.Now().Add(-30 * time.Hour).Unix(), LastAttemptAt: time.Now().Add(-20 * time.Hour).Unix()},
 		{Url: "https://example.com/dead", Title: "Dead", Image: "https://example.com/dead.png"},
@@ -369,8 +418,8 @@ func TestRefreshMemoLinkCovers(t *testing.T) {
 	// Backoff would normally block the exhausted link; refresh ignores it.
 	resp, err := service.RefreshMemoLinkCovers(ctx, &v1pb.RefreshMemoLinkCoversRequest{})
 	require.NoError(t, err)
-	require.Equal(t, int32(1), resp.UpdatedLinks)
-	require.Equal(t, int32(1), resp.FailedLinks)
+	require.Equal(t, int32(2), resp.UpdatedLinks)
+	require.Zero(t, resp.FailedLinks)
 	require.Equal(t, int32(1), resp.MemosExamined)
 
 	stored, err := service.Store.GetMemo(ctx, &store.FindMemo{UID: &created.UID})
@@ -379,10 +428,9 @@ func TestRefreshMemoLinkCovers(t *testing.T) {
 	require.NotEmpty(t, aLink.CoverAttachmentUid)
 	require.Zero(t, aLink.FetchAttempts, "success clears retry bookkeeping")
 	deadLink := stored.Payload.Links[1]
-	require.Equal(t, int32(1), deadLink.FetchAttempts, "failure restarts the backoff window")
-	require.Positive(t, deadLink.LastAttemptAt)
-	require.Equal(t, deadLink.LastAttemptAt, deadLink.FirstAttemptAt, "manual failure starts a bounded retry window")
-	require.False(t, prepareRetry(deadLink, time.Unix(deadLink.LastAttemptAt, 0).Add(time.Minute)), "background retry respects manual refresh backoff")
+	require.NotEmpty(t, deadLink.CoverAttachmentUid)
+	require.Empty(t, deadLink.Image)
+	require.Zero(t, deadLink.FetchAttempts)
 }
 
 func TestRefreshMemoLinkCoversDiscoversNewImage(t *testing.T) {
@@ -424,12 +472,61 @@ func TestRefreshMemoLinkCoversDiscoversNewImage(t *testing.T) {
 	require.Zero(t, entry.FetchAttempts)
 }
 
+func TestRefreshMemoLinkCoversUpgradesGeneratedCover(t *testing.T) {
+	service := newLinkEnrichmentTestService(t, stubFetchResults{
+		metas: map[string]*httpgetter.HTMLMeta{
+			"https://example.com/late": {Title: "Late", Image: "https://example.com/late.png"},
+		},
+		images: map[string]*httpgetter.Image{
+			"https://example.com/late.png": {Blob: validCoverPNG, Mediatype: "image/png"},
+		},
+	})
+	user, err := service.Store.CreateUser(context.Background(), &store.User{Username: "generated-cover", Role: store.RoleUser, PasswordHash: "hash"})
+	require.NoError(t, err)
+	uid, width, height := service.cacheGeneratedLinkCover(context.Background(), user.ID, "https://example.com/late", &httpgetter.HTMLMeta{}, false)
+	require.NotEmpty(t, uid)
+
+	memo := &store.Memo{UID: shortuuid.New(), CreatorID: user.ID, Visibility: store.Public, Content: "https://example.com/late"}
+	require.NoError(t, memopayload.RebuildMemoPayload(context.Background(), memo, service.MarkdownService))
+	memo.Payload.Links = []*storepb.MemoPayload_LinkMetadata{{
+		Url: "https://example.com/late", CoverAttachmentUid: uid, CoverWidth: width, CoverHeight: height,
+	}}
+	created, err := service.Store.CreateMemo(context.Background(), memo)
+	require.NoError(t, err)
+
+	ctx := context.WithValue(context.Background(), auth.UserIDContextKey, user.ID)
+	resp, err := service.RefreshMemoLinkCovers(ctx, &v1pb.RefreshMemoLinkCoversRequest{})
+	require.NoError(t, err)
+	require.Equal(t, int32(1), resp.UpdatedLinks)
+	require.Zero(t, resp.FailedLinks)
+
+	stored, err := service.Store.GetMemo(ctx, &store.FindMemo{UID: &created.UID})
+	require.NoError(t, err)
+	require.Equal(t, "https://example.com/late.png", stored.Payload.Links[0].Image)
+	require.NotEqual(t, uid, stored.Payload.Links[0].CoverAttachmentUid)
+}
+
 func TestCoverFilenameIsDeterministic(t *testing.T) {
 	first := coverFilename("https://a.com/page", "https://img.a.com/pic.jpg?v=2")
 	second := coverFilename("https://a.com/page", "https://img.a.com/pic.jpg?v=2")
 	require.Equal(t, first, second)
 	require.Contains(t, first, ".jpg")
 	require.NotEqual(t, first, coverFilename("https://a.com/other", "https://img.a.com/pic.jpg?v=2"))
+}
+
+func TestGenerateLinkFallbackCoverIsDeterministic(t *testing.T) {
+	first, err := generateLinkFallbackCover("https://example.com/article", nil)
+	require.NoError(t, err)
+	second, err := generateLinkFallbackCover("https://example.com/article", nil)
+	require.NoError(t, err)
+	require.Equal(t, first, second)
+}
+
+func TestDecodeFaviconReadsPNGBackedICO(t *testing.T) {
+	ico := append([]byte{0, 0, 1, 0, 1, 0, 16, 16}, validCoverPNG...)
+	icon, err := decodeFavicon(ico)
+	require.NoError(t, err)
+	require.Equal(t, image.Rect(0, 0, 1, 1), icon.Bounds())
 }
 
 type stubCountingFetcher struct {

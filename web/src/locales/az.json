@@ -23,7 +23,12 @@
   "bookmarks": {
     "description": "Yadda saxladığınız keçidlər, yenidən baxmağa hazırdır.",
     "empty": "Hələ əlfəcin yoxdur. Kitabxananızı yaratmaq üçün keçid saxlayın və ya CSV idxal edin.",
+    "empty-archive": "Arxivlənmiş əlfəcin yoxdur.",
     "no-results": "Filtrlərinizə uyğun əlfəcin yoxdur. Filtrləri dəyişin və ya təmizləyin.",
+    "views-label": "Əlfəcin görünüşləri",
+    "unread": "Oxunmamış",
+    "favorites": "Sevimlilər",
+    "archive": "Arxiv",
     "search-placeholder": "Əlfəcinlərdə axtar",
     "import": "İdxal et",
     "import-title": "Əlfəcinləri idxal et",

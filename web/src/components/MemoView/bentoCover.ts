@@ -58,8 +58,10 @@ export const getBentoTileTitle = (memo: Memo): string => {
 export const getBentoTileSnippet = (memo: Memo): string => {
   const lines = (memo.content ?? "")
     .split("\n")
+    .filter((line) => !/^(?:\s*#[^\s#]+)+\s*$/.test(line))
     .map((line) => stripMarkdown(line))
     .filter((line) => line.length > 0);
   const remaining = lines.slice(1).join(" ");
-  return remaining.trim();
+  if (remaining.trim()) return remaining.trim();
+  return (memo.property?.links ?? []).find((link) => Boolean(link.description))?.description.trim() ?? "";
 };
