@@ -45,8 +45,9 @@ Theme files under `web/src/themes/` own actual values. Components use semantic t
 
 - Title and bookmark icon establish the page.
 - The masthead spans the entire collection in every layout. Search and view options are available in a wrapping secondary toolbar; active filters remain visible below it.
-- Empty collections explain that saving a link creates a bookmark; filtered empty collections invite the user to adjust filters.
-- Save Link is the sole primary action; Import and Refresh remain quiet utilities.
+- All, Favorites, and Archive are first-class library views. Favorite state is independent of memo pinning.
+- An inline composer accepts links, text, or attachments. Empty collections explain these options; filtered empty collections invite the user to adjust filters.
+- Bookmarklet setup is secondary; Import and Refresh remain quiet utilities.
 - Mobile uses icon-only controls with accessible names and 40px touch targets; labels appear from `sm` upward.
 - Refresh exposes idle, running, success, partial-failure, error, and disabled states without changing the underlying RPC behavior.
 - Running refresh offers a text Cancel action. Cancellation keeps completed work and announces its outcome in the same live region.
@@ -55,6 +56,7 @@ Theme files under `web/src/themes/` own actual values. Components use semantic t
 
 - Capture provides a labeled native URL field and one primary Continue action before the existing memo editor. Bookmarklet setup remains secondary.
 - Invalid URLs and failed saves preserve the draft and show explicit error text. Only HTTP and HTTPS links enter capture.
+- Link capture and import use the bookmark save endpoint, which canonicalizes URLs and resurfaces an existing archived bookmark instead of creating another one.
 - Capture opened from Bookmarks returns to the originating bookmark collection, including its query. Detail navigation names that destination correctly.
 - Import reuses the shared dialog, buttons and semantic color tokens. The file picker supports keyboard, click and drag-and-drop.
 - Dialogs move keyboard focus inside on open and restore it on close. Tab navigation stays within a modal.
@@ -65,7 +67,7 @@ Theme files under `web/src/themes/` own actual values. Components use semantic t
 
 - A native detail link names each tile by its title; source links open the external HTTP(S) page separately. Links must not nest.
 - Cover variant: image above a semantic card surface containing title, optional creator, and metadata. Text readability must not depend on image contrast.
-- Text variant: source/creator rail, title, excerpt, and pinned status.
+- Text variant: source/creator rail, title, excerpt, and bookmark actions.
 - Failed covers fall back to the text variant.
 - Pin, Space, and non-private visibility remain available across layouts. Metadata uses a readable semantic surface when necessary over covers.
 - Sensitive-tag tiles display only a reveal control until revealed; their image, title, excerpt, and source are also concealed from assistive technology.

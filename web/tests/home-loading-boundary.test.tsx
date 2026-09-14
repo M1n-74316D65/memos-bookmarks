@@ -82,7 +82,7 @@ describe("<Home>", () => {
 
     expect(screen.getByTestId("memo-editor")).toBeInTheDocument();
     expect(screen.getByTestId("memo-view")).toBeInTheDocument();
-    expect(state.listProps).toMatchObject({ contextFilter: undefined });
+    expect(state.listProps).toMatchObject({ contextFilter: "(!is_bookmark)" });
     expect(state.editorProps).toMatchObject({ cacheKey: "home-memo-editor", defaultSpace: undefined });
     expect(state.editorProps?.autoFocus).toEqual(expect.any(Function));
   });
@@ -91,7 +91,7 @@ describe("<Home>", () => {
     state.selectedSpaceName = "spaces/product";
     render(<Home />);
 
-    expect(state.listProps).toMatchObject({ contextFilter: 'space == "spaces/product"' });
+    expect(state.listProps).toMatchObject({ contextFilter: '(!is_bookmark) && (space == "spaces/product")' });
     expect(state.editorProps).toMatchObject({
       cacheKey: "home-memo-editor:spaces/product",
       defaultSpace: "spaces/product",

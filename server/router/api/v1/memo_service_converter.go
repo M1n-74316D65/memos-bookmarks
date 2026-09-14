@@ -63,6 +63,7 @@ func (s *APIV1Service) convertMemoFromStoreWithCreators(ctx context.Context, mem
 	if memo.Payload != nil {
 		memoMessage.Tags = memo.Payload.Tags
 		memoMessage.Property = convertMemoPropertyFromStore(memo.Payload.Property)
+		memoMessage.Bookmark = convertBookmarkFromStore(memo.Payload.Bookmark)
 		if links := convertMemoLinksFromStore(memo.Payload.Links); len(links) > 0 {
 			if memoMessage.Property == nil {
 				memoMessage.Property = &v1pb.Memo_Property{}
@@ -106,6 +107,28 @@ func (s *APIV1Service) convertMemoFromStoreWithCreators(ctx context.Context, mem
 	memoMessage.Snippet = snippet
 
 	return memoMessage, nil
+}
+
+func convertBookmarkFromStore(bookmark *storepb.Bookmark) *v1pb.Bookmark {
+	if bookmark == nil {
+		return nil
+	}
+	return &v1pb.Bookmark{
+		Type:      v1pb.Bookmark_Type(bookmark.Type),
+		SourceUrl: bookmark.SourceUrl,
+		Favorited: bookmark.Favorited,
+	}
+}
+
+func convertBookmarkToStore(bookmark *v1pb.Bookmark) *storepb.Bookmark {
+	if bookmark == nil {
+		return nil
+	}
+	return &storepb.Bookmark{
+		Type:      storepb.Bookmark_Type(bookmark.Type),
+		SourceUrl: bookmark.SourceUrl,
+		Favorited: bookmark.Favorited,
+	}
 }
 
 func (s *APIV1Service) projectMemoCollaborationContext(ctx context.Context, memo *store.Memo, message *v1pb.Memo, readContext access.MemoReadContext) error {

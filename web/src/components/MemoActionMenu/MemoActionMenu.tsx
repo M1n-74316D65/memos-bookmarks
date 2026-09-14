@@ -3,12 +3,12 @@ import {
   ArchiveRestoreIcon,
   BookmarkMinusIcon,
   BookmarkPlusIcon,
-  BookOpenIcon,
   CheckCheckIcon,
   CopyIcon,
   Edit3Icon,
   FileTextIcon,
   FolderInputIcon,
+  HeartIcon,
   LinkIcon,
   ListChecksIcon,
   ListRestartIcon,
@@ -47,19 +47,18 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
   const isArchived = memo.state === State.ARCHIVED;
   const canMutateTasks = !readonly && !isArchived && Boolean(memo.property?.hasTaskList);
   const hasOpenTasks = Boolean(memo.property?.hasIncompleteTasks);
-  const isUnread = !readonly && !isArchived && !isComment && memo.tags.includes("unread");
 
   // Action handlers
   const {
     canMove,
     handleTogglePinMemoBtnClick,
+    handleToggleFavoriteBookmarkClick,
     handleEditMemoClick,
     handleToggleMemoStatusClick,
     handleCopyLink,
     handleCopyContent,
     handleCheckAllTaskListItemsClick,
     handleUncheckAllTaskListItemsClick,
-    handleMarkAsReadClick,
     handleDeleteMemoClick,
     confirmDeleteMemo,
   } = useMemoActionHandlers({
@@ -79,9 +78,21 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
         {!readonly && !isArchived && (
           <>
             {!isComment && (
-              <DropdownMenuItem onClick={handleTogglePinMemoBtnClick}>
-                {memo.pinned ? <BookmarkMinusIcon className="w-4 h-auto" /> : <BookmarkPlusIcon className="w-4 h-auto" />}
-                {memo.pinned ? t("common.unpin") : t("common.pin")}
+              <DropdownMenuItem onClick={memo.bookmark ? handleToggleFavoriteBookmarkClick : handleTogglePinMemoBtnClick}>
+                {memo.bookmark ? (
+                  <HeartIcon className="w-4 h-auto" fill={memo.bookmark.favorited ? "currentColor" : "none"} />
+                ) : memo.pinned ? (
+                  <BookmarkMinusIcon className="w-4 h-auto" />
+                ) : (
+                  <BookmarkPlusIcon className="w-4 h-auto" />
+                )}
+                {memo.bookmark
+                  ? memo.bookmark.favorited
+                    ? t("bookmarks.remove-favorite")
+                    : t("bookmarks.add-favorite")
+                  : memo.pinned
+                    ? t("common.unpin")
+                    : t("common.pin")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onClick={handleEditMemoClick}>
@@ -112,12 +123,6 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
         )}
 
         {/* Task submenu (writable task memos) */}
-        {isUnread && (
-          <DropdownMenuItem onClick={handleMarkAsReadClick}>
-            <BookOpenIcon className="w-4 h-auto" />
-            Mark as read
-          </DropdownMenuItem>
-        )}
         {canMutateTasks && (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>

@@ -10,20 +10,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSpaceContext } from "@/contexts/SpaceContext";
 import useCurrentUser from "@/hooks/useCurrentUser";
-import { useCreateMemo } from "@/hooks/useMemoQueries";
+import { useSaveBookmark } from "@/hooks/useMemoQueries";
 import { buildBookmarkContent, isValidBookmarkUrl } from "@/lib/bookmark";
 import { spaceScopedCacheKey } from "@/lib/resource-names";
 import { ROUTES, resolveCollectionRoute } from "@/router/routes";
-import { type Memo, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
+import { Bookmark_Type, BookmarkSchema, type Memo, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 
 export { buildBookmarkContent } from "@/lib/bookmark";
 
-const createMemoFromContent = (content: string, space?: string): Memo => create(MemoSchema, { content, space });
+const createMemoFromContent = (content: string, sourceUrl: string, space?: string): Memo =>
+  create(MemoSchema, {
+    content,
+    space,
+    bookmark: create(BookmarkSchema, { type: Bookmark_Type.LINK, sourceUrl }),
+  });
 
 /**
  * Quick-capture target for the bookmarklet:
- * `/bookmark?url=…&title=…&tags=unread&autosave=1`
+ * `/bookmark?url=…&title=…&tags=reading&autosave=1`
  *
  * With `autosave=1` the memo is created directly and the user is sent home —
  * the bookmarklet flow where the app should never get in the way. Without it,
@@ -35,7 +40,7 @@ const Bookmark = () => {
   const { selectedSpaceName } = useSpaceContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const createMemo = useCreateMemo();
+  const saveBookmark = useSaveBookmark();
   const autosaveStartedRef = useRef(false);
   const [copied, setCopied] = useState(false);
   const [inputUrl, setInputUrl] = useState(searchParams.get("url") ?? "");
@@ -48,7 +53,7 @@ const Bookmark = () => {
   const returnLabel = returnTo === ROUTES.HOME ? t("bookmarks.capture-go-home") : t("memo.back-to", { source: t("common.bookmarks") });
   const url = searchParams.get("url") ?? "";
   const title = searchParams.get("title") ?? "";
-  const tagsParam = searchParams.get("tags") ?? "unread";
+  const tagsParam = searchParams.get("tags") ?? "";
   const tags = useMemo(
     () =>
       tagsParam
@@ -70,7 +75,7 @@ const Bookmark = () => {
       return;
     }
     autosaveStartedRef.current = true;
-    createMemo.mutate(createMemoFromContent(content, targetSpaceName), {
+    saveBookmark.mutate(createMemoFromContent(content, url, targetSpaceName), {
       onSuccess: () => navigate(returnTo),
       onError: () => {
         toast.error(t("bookmarks.capture-save-failed"));
@@ -79,7 +84,7 @@ const Bookmark = () => {
         setSearchParams(draftParams, { replace: true });
       },
     });
-  }, [autosave, content, createMemo, navigate, returnTo, searchParams, setSearchParams, t, targetSpaceName]);
+  }, [autosave, content, navigate, returnTo, saveBookmark, searchParams, setSearchParams, t, targetSpaceName, url]);
 
   const bookmarklet = `javascript:location.href='${window.location.origin}/bookmark?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title)+'&autosave=1'`;
 
@@ -183,6 +188,8 @@ const Bookmark = () => {
           cacheKey={editorCacheKey}
           initialContent={initialContent}
           defaultSpace={targetSpaceName}
+          createAsBookmark
+          bookmarkSourceUrl={url}
           autoFocus
           onConfirm={() => navigate(returnTo)}
           onCancel={() => navigate(returnTo)}

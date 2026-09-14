@@ -254,6 +254,28 @@ func NewSchema() Schema {
 				CompareNeq: true,
 			},
 		},
+		"is_bookmark": {
+			Name:     "is_bookmark",
+			Kind:     FieldKindJSONExists,
+			Type:     FieldTypeBool,
+			Column:   Column{Table: "memo", Name: "payload"},
+			JSONPath: []string{"bookmark"},
+			AllowedComparisonOps: map[ComparisonOperator]bool{
+				CompareEq:  true,
+				CompareNeq: true,
+			},
+		},
+		"bookmark_favorited": {
+			Name:     "bookmark_favorited",
+			Kind:     FieldKindJSONBool,
+			Type:     FieldTypeBool,
+			Column:   Column{Table: "memo", Name: "payload"},
+			JSONPath: []string{"bookmark", "favorited"},
+			AllowedComparisonOps: map[ComparisonOperator]bool{
+				CompareEq:  true,
+				CompareNeq: true,
+			},
+		},
 	}
 
 	envOptions := []cel.EnvOption{
@@ -273,6 +295,8 @@ func NewSchema() Schema {
 		cel.Variable("has_code", cel.BoolType),
 		cel.Variable("has_incomplete_tasks", cel.BoolType),
 		cel.Variable("has_location", cel.BoolType),
+		cel.Variable("is_bookmark", cel.BoolType),
+		cel.Variable("bookmark_favorited", cel.BoolType),
 		cel.Variable("now", cel.TimestampType),
 		ext.Sets(),
 		cel.ASTValidators(cel.ValidateRegexLiterals()),

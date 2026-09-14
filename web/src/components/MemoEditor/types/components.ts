@@ -14,6 +14,10 @@ export interface MemoEditorProps {
   parentMemoName?: string;
   /** Assigns a newly created top-level memo to this Space. Ignored for edits and comments. */
   defaultSpace?: string;
+  /** Saves a new top-level entry through the bookmark creation path. */
+  createAsBookmark?: boolean;
+  /** Canonical source supplied by bookmarklet capture when content is a titled Markdown link. */
+  bookmarkSourceUrl?: string;
   /** Seeds a new memo once; restored draft metadata takes precedence. */
   defaultLocation?: Location;
   /** A callback can decide whether focus is still appropriate after draft restoration. */

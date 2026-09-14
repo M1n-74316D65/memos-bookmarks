@@ -402,6 +402,12 @@ func (s *APIV1Service) UpdateMemo(ctx context.Context, request *v1pb.UpdateMemoR
 			}
 			nextMemo.Payload.Location = convertLocationToStore(request.Memo.Location)
 			update.Payload = nextMemo.Payload
+		} else if path == "bookmark.favorited" {
+			if nextMemo.Payload.GetBookmark() == nil {
+				return nil, status.Errorf(codes.FailedPrecondition, "memo is not a bookmark")
+			}
+			nextMemo.Payload.Bookmark.Favorited = request.Memo.GetBookmark().GetFavorited()
+			update.Payload = nextMemo.Payload
 		} else if path == "attachments" {
 			attachmentsUpdated = true
 		} else if path == "relations" {
@@ -409,6 +415,9 @@ func (s *APIV1Service) UpdateMemo(ctx context.Context, request *v1pb.UpdateMemoR
 		} else {
 			return nil, status.Errorf(codes.InvalidArgument, "invalid update path: %s", path)
 		}
+	}
+	if update.Payload != nil {
+		update.ExpectedPayload = &memo.PayloadRaw
 	}
 
 	var preparedAttachments *preparedMemoAttachments

@@ -11,7 +11,7 @@ import { AttachmentSchema } from "@/types/proto/api/v1/attachment_service_pb";
 const state = vi.hoisted(() => ({ mutate: vi.fn(), error: vi.fn(), selectedSpaceName: "" }));
 vi.mock("@/contexts/SpaceContext", () => ({ useSpaceContext: () => ({ selectedSpaceName: state.selectedSpaceName || undefined }) }));
 vi.mock("@/hooks/useCurrentUser", () => ({ default: () => ({ name: "users/test" }) }));
-vi.mock("@/hooks/useMemoQueries", () => ({ useCreateMemo: () => ({ mutate: state.mutate }) }));
+vi.mock("@/hooks/useMemoQueries", () => ({ useSaveBookmark: () => ({ mutate: state.mutate }) }));
 vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
 vi.mock("react-hot-toast", () => ({ default: { error: state.error } }));
 vi.mock("@/components/MemoEditor", () => ({
@@ -150,7 +150,7 @@ describe("bookmark capture", () => {
     first.unmount();
     cacheService.saveNow(cacheService.key("users/test", cacheKey), "First article notes");
     renderCapture("?url=https://example.com/other");
-    expect(screen.getByTestId("editor").textContent).toBe("https://example.com/other #unread");
+    expect(screen.getByTestId("editor").textContent).toBe("https://example.com/other");
     expect(screen.getByTestId("editor").getAttribute("data-cache-key")).not.toBe(cacheKey);
   });
 
@@ -172,7 +172,7 @@ describe("bookmark capture", () => {
       target: { value: "https://example.com/article" },
     });
     fireEvent.click(screen.getByRole("button", { name: "bookmarks.capture-continue" }));
-    expect(screen.getByTestId("editor").textContent).toBe("https://example.com/article #unread");
+    expect(screen.getByTestId("editor").textContent).toBe("https://example.com/article");
     expect(state.mutate).not.toHaveBeenCalled();
   });
 

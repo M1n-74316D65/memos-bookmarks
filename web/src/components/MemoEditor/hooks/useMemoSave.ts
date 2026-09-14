@@ -18,6 +18,8 @@ interface UseMemoSaveOptions {
   memoName?: string;
   parentMemoName?: string;
   defaultSpace?: string;
+  createAsBookmark?: boolean;
+  bookmarkSourceUrl?: string;
   defaultVisibility?: Visibility;
   defaultCreateTime?: Date;
   discardDraft: () => void;
@@ -34,6 +36,8 @@ export function useMemoSave({
   memoName,
   parentMemoName,
   defaultSpace,
+  createAsBookmark,
+  bookmarkSourceUrl,
   defaultVisibility,
   defaultCreateTime,
   discardDraft,
@@ -59,7 +63,13 @@ export function useMemoSave({
     dispatch(actions.setLoading("saving", true));
 
     try {
-      const result = await memoService.save(state, { memoName, parentMemoName, space: defaultSpace });
+      const result = await memoService.save(state, {
+        memoName,
+        parentMemoName,
+        space: defaultSpace,
+        createAsBookmark,
+        bookmarkSourceUrl,
+      });
 
       if (!result.hasChanges) {
         toast.error(t("editor.no-changes-detected"));
@@ -117,6 +127,8 @@ export function useMemoSave({
     }
   }, [
     actions,
+    bookmarkSourceUrl,
+    createAsBookmark,
     defaultCreateTime,
     defaultSpace,
     defaultVisibility,

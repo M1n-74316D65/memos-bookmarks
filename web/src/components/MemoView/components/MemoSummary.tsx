@@ -1,11 +1,15 @@
+import { create } from "@bufbuild/protobuf";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
-import { ArrowUpRightIcon, BookmarkIcon, EyeIcon, FileTextIcon, PinIcon } from "lucide-react";
+import { ArchiveIcon, ArchiveRestoreIcon, ArrowUpRightIcon, BookmarkIcon, EyeIcon, FileTextIcon, HeartIcon, PinIcon } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import RelativeTime from "@/components/RelativeTime";
 import { Button } from "@/components/ui/button";
 import VisibilityIcon from "@/components/VisibilityIcon";
+import { useUpdateMemo } from "@/hooks/useMemoQueries";
 import { cn } from "@/lib/utils";
+import { State } from "@/types/proto/api/v1/common_pb";
+import { type Bookmark, BookmarkSchema } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import { getVisibilityOption } from "@/utils/memo";
 import { getBentoCoverUrl, getBentoTileSnippet, getBentoTileSourceUrl, getBentoTileTitle } from "../bentoCover";
@@ -14,8 +18,52 @@ import { createMemoNavigationState } from "../navigation";
 import type { MemoHeaderProps } from "../types";
 import MemoSpaceBadge from "./MemoSpaceBadge";
 
+const BookmarkActions = ({ name, bookmark, isArchived }: { name: string; bookmark: Bookmark; isArchived: boolean }) => {
+  const t = useTranslate();
+  const { mutate: updateMemo } = useUpdateMemo();
+
+  return (
+    <div className="ml-auto flex shrink-0 items-center gap-1">
+      <Button
+        variant="quiet"
+        size="icon-sm"
+        aria-label={bookmark.favorited ? t("bookmarks.remove-favorite") : t("bookmarks.add-favorite")}
+        onClick={() =>
+          updateMemo({
+            update: {
+              name,
+              bookmark: create(BookmarkSchema, {
+                type: bookmark.type,
+                sourceUrl: bookmark.sourceUrl,
+                favorited: !bookmark.favorited,
+              }),
+            },
+            updateMask: ["bookmark.favorited"],
+          })
+        }
+      >
+        <HeartIcon className="size-3.5" fill={bookmark.favorited ? "currentColor" : "none"} />
+      </Button>
+      <Button
+        variant="quiet"
+        size="icon-sm"
+        aria-label={isArchived ? t("common.restore") : t("common.archive")}
+        onClick={() =>
+          updateMemo({
+            update: { name, state: isArchived ? State.NORMAL : State.ARCHIVED },
+            updateMask: ["state"],
+          })
+        }
+      >
+        {isArchived ? <ArchiveRestoreIcon className="size-3.5" /> : <ArchiveIcon className="size-3.5" />}
+      </Button>
+    </div>
+  );
+};
+
 const MemoSummary = ({ showCreator, showPinned, showSpace, showVisibility }: MemoHeaderProps) => {
-  const { memo, creator, parentPage, shareToken, blurred, showBlurredContent, toggleBlurVisibility } = useMemoViewContext();
+  const { memo, creator, parentPage, shareToken, blurred, showBlurredContent, toggleBlurVisibility, readonly, isArchived } =
+    useMemoViewContext();
   const [failedCover, setFailedCover] = useState<string>();
   const t = useTranslate();
 
@@ -93,7 +141,12 @@ const MemoSummary = ({ showCreator, showPinned, showSpace, showVisibility }: Mem
           </div>
         </div>
       </Link>
-      {(sourceUrl || createTime || (showSpace && memo.space) || (showPinned && memo.pinned) || (showVisibility && visibilityOption)) && (
+      {(sourceUrl ||
+        createTime ||
+        memo.bookmark ||
+        (showSpace && memo.space) ||
+        (showPinned && memo.pinned) ||
+        (showVisibility && visibilityOption)) && (
         <div className="flex min-w-0 shrink-0 items-center gap-3 overflow-hidden border-t border-border/60 bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground">
           {sourceUrl && (
             <a
@@ -128,6 +181,7 @@ const MemoSummary = ({ showCreator, showPinned, showSpace, showVisibility }: Mem
               {t("common.pinned")}
             </span>
           )}
+          {memo.bookmark && !readonly && <BookmarkActions name={memo.name} bookmark={memo.bookmark} isArchived={isArchived} />}
         </div>
       )}
     </div>

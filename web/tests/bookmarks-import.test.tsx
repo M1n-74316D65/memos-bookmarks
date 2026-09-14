@@ -6,7 +6,7 @@ import { buildMemoContent, useBookmarkImport } from "@/components/BookmarksImpor
 
 const mocks = vi.hoisted(() => ({
   listMemos: vi.fn(),
-  createMemo: vi.fn(),
+  saveBookmark: vi.fn(),
   invalidate: vi.fn(),
 }));
 
@@ -15,7 +15,7 @@ vi.mock("@/hooks/useCurrentUser", () => ({ default: () => ({ name: "users/alice"
 vi.mock("@/contexts/SpaceContext", () => ({ useSpaceContext: () => ({ selectedSpaceName: "spaces/reading" }) }));
 
 vi.mock("@/connect", () => ({
-  memoServiceClient: { listMemos: mocks.listMemos, createMemo: mocks.createMemo },
+  memoServiceClient: { listMemos: mocks.listMemos, saveBookmark: mocks.saveBookmark },
 }));
 
 vi.mock("@tanstack/react-query", async () => {
@@ -68,7 +68,7 @@ describe("useBookmarkImport", () => {
   });
 
   it("skips rows whose URL already exists and creates the rest", async () => {
-    mocks.createMemo.mockResolvedValue({});
+    mocks.saveBookmark.mockResolvedValue({});
     const { result } = renderImportHook();
 
     await act(() =>
@@ -76,45 +76,30 @@ describe("useBookmarkImport", () => {
     );
     await waitFor(() => expect(result.current.progress.status).toBe("done"));
 
-    expect(mocks.createMemo).toHaveBeenCalledTimes(2);
+    expect(mocks.saveBookmark).toHaveBeenCalledTimes(2);
     expect(result.current.progress).toMatchObject({ total: 3, created: 2, skipped: 1, failed: 0 });
     expect(mocks.listMemos).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ filter: 'has_link && creator == "users/alice"', state: 1, orderBy: "id asc" }),
+      expect.objectContaining({ filter: 'is_bookmark && creator == "users/alice"', state: 1, orderBy: "id asc" }),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    expect(mocks.listMemos).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ filter: 'has_link && creator == "users/alice"', state: 2, orderBy: "id asc" }),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
-    );
+    expect(mocks.listMemos).toHaveBeenCalledOnce();
   });
 
-  it("deduplicates URLs found only in archived memos", async () => {
-    mocks.listMemos
-      .mockResolvedValueOnce({ memos: [], nextPageToken: "" })
-      .mockResolvedValueOnce({ memos: [{ content: "[Archived](https://example.com/a)" }], nextPageToken: "" });
+  it("sends archived matches to the server so they can be restored", async () => {
+    mocks.listMemos.mockResolvedValue({ memos: [], nextPageToken: "" });
+    mocks.saveBookmark.mockResolvedValue({});
     const { result } = renderImportHook();
 
     await act(() => result.current.start([row()]));
 
-    expect(mocks.createMemo).not.toHaveBeenCalled();
-    expect(result.current.progress).toMatchObject({ status: "done", skipped: 1 });
-  });
-
-  it("does not write when the archived scan fails", async () => {
-    mocks.listMemos.mockResolvedValueOnce({ memos: [], nextPageToken: "" }).mockRejectedValueOnce(new Error("offline"));
-    const { result } = renderImportHook();
-
-    await act(() => result.current.start([row()]));
-
-    expect(mocks.createMemo).not.toHaveBeenCalled();
-    expect(result.current.progress.status).toBe("error");
+    expect(mocks.saveBookmark).toHaveBeenCalledOnce();
+    expect(result.current.progress).toMatchObject({ status: "done", created: 1, skipped: 0 });
   });
 
   it("keeps sensitive URL and error details out of browser logs", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mocks.createMemo.mockRejectedValue(
+    mocks.saveBookmark.mockRejectedValue(
       new Error("https://sample-user:sample-pass@example.test/private-path?token=sample-secret#sample-fragment"),
     );
     const { result } = renderImportHook();
@@ -132,7 +117,7 @@ describe("useBookmarkImport", () => {
   });
 
   it("counts per-row failures without aborting the run", async () => {
-    mocks.createMemo.mockRejectedValue(new Error("boom"));
+    mocks.saveBookmark.mockRejectedValue(new Error("boom"));
     const { result } = renderImportHook();
 
     await act(() => result.current.start([row(), row({ url: "https://example.com/b" })]));
@@ -142,14 +127,16 @@ describe("useBookmarkImport", () => {
   });
 
   it("invalidates the memo caches once at the end", async () => {
-    mocks.createMemo.mockResolvedValue({});
+    mocks.saveBookmark.mockResolvedValue({});
     const { result } = renderImportHook();
 
     await act(() => result.current.start([row()]));
     await waitFor(() => expect(result.current.progress.status).toBe("done"));
 
     expect(mocks.invalidate).toHaveBeenCalled();
-    expect(mocks.createMemo).toHaveBeenCalledWith(expect.objectContaining({ memo: expect.objectContaining({ space: "spaces/reading" }) }));
+    expect(mocks.saveBookmark).toHaveBeenCalledWith(
+      expect.objectContaining({ bookmark: expect.objectContaining({ space: "spaces/reading" }) }),
+    );
   });
 
   it("deduplicates against bare URLs, autolinks, and memo property links", async () => {
@@ -161,7 +148,7 @@ describe("useBookmarkImport", () => {
       ],
       nextPageToken: "",
     });
-    mocks.createMemo.mockResolvedValue({});
+    mocks.saveBookmark.mockResolvedValue({});
     const { result } = renderImportHook();
 
     await act(() =>
@@ -174,13 +161,13 @@ describe("useBookmarkImport", () => {
     );
     await waitFor(() => expect(result.current.progress.status).toBe("done"));
 
-    expect(mocks.createMemo).toHaveBeenCalledTimes(1);
+    expect(mocks.saveBookmark).toHaveBeenCalledTimes(1);
     expect(result.current.progress).toMatchObject({ total: 4, created: 1, skipped: 3, failed: 0 });
   });
   it("skips repeated URLs within one file", async () => {
     const { result } = renderImportHook();
     await act(() => result.current.start([row(), row()]));
-    expect(mocks.createMemo).toHaveBeenCalledTimes(1);
+    expect(mocks.saveBookmark).toHaveBeenCalledTimes(1);
     expect(result.current.progress.skipped).toBe(1);
   });
 
@@ -188,7 +175,7 @@ describe("useBookmarkImport", () => {
     mocks.listMemos.mockRejectedValue(new Error("offline"));
     const { result } = renderImportHook();
     await act(() => result.current.start([row()]));
-    expect(mocks.createMemo).not.toHaveBeenCalled();
+    expect(mocks.saveBookmark).not.toHaveBeenCalled();
     expect(result.current.progress.status).toBe("error");
   });
 
@@ -206,7 +193,7 @@ describe("useBookmarkImport", () => {
       await run;
     });
     expect(mocks.listMemos).toHaveBeenCalledTimes(1);
-    expect(mocks.createMemo).not.toHaveBeenCalled();
+    expect(mocks.saveBookmark).not.toHaveBeenCalled();
     expect(result.current.progress.status).toBe("cancelled");
   });
 
@@ -224,23 +211,23 @@ describe("useBookmarkImport", () => {
       await run;
     });
     expect(result.current.progress.status).toBe("idle");
-    expect(mocks.createMemo).not.toHaveBeenCalled();
+    expect(mocks.saveBookmark).not.toHaveBeenCalled();
   });
   it("finishes in-flight writes but does not schedule more after cancellation", async () => {
     const pending = Promise.withResolvers<object>();
-    mocks.createMemo.mockReturnValue(pending.promise);
+    mocks.saveBookmark.mockReturnValue(pending.promise);
     const { result } = renderImportHook();
     let run: Promise<void>;
     act(() => {
       run = result.current.start(Array.from({ length: 5 }, (_, index) => row({ url: `https://example.com/${index}` })));
     });
-    await waitFor(() => expect(mocks.createMemo).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(mocks.saveBookmark).toHaveBeenCalledTimes(3));
     act(() => result.current.cancel());
     await act(async () => {
       pending.resolve({});
       await run;
     });
-    expect(mocks.createMemo).toHaveBeenCalledTimes(3);
+    expect(mocks.saveBookmark).toHaveBeenCalledTimes(3);
     expect(result.current.progress).toMatchObject({ status: "cancelled", created: 3, total: 5 });
   });
 
@@ -248,19 +235,19 @@ describe("useBookmarkImport", () => {
     mocks.listMemos.mockResolvedValue({ memos: [{ content: "[Existing](https://example.com/a%28b%29)" }], nextPageToken: "" });
     const { result } = renderImportHook();
     await act(() => result.current.start([row({ url: "https://example.com/a(b)" })]));
-    expect(mocks.createMemo).not.toHaveBeenCalled();
+    expect(mocks.saveBookmark).not.toHaveBeenCalled();
   });
   it("does not invent a duplicate by truncating a balanced-parenthesis URL", async () => {
     mocks.listMemos.mockResolvedValue({
       memos: [{ content: "[Existing](https://example.com/a(b))", property: { links: [{ url: "https://example.com/a(b)" }] } }],
       nextPageToken: "",
     });
-    mocks.createMemo.mockResolvedValue({});
+    mocks.saveBookmark.mockResolvedValue({});
     const { result } = renderImportHook();
     await act(() => result.current.start([row({ url: "https://example.com/a(b" }), row({ url: "https://example.com/a(b)" })]));
-    expect(mocks.createMemo).toHaveBeenCalledTimes(1);
-    expect(mocks.createMemo).toHaveBeenCalledWith(
-      expect.objectContaining({ memo: expect.objectContaining({ content: expect.stringContaining("https://example.com/a%28b)") }) }),
+    expect(mocks.saveBookmark).toHaveBeenCalledTimes(1);
+    expect(mocks.saveBookmark).toHaveBeenCalledWith(
+      expect.objectContaining({ bookmark: expect.objectContaining({ content: expect.stringContaining("https://example.com/a%28b)") }) }),
     );
     expect(result.current.progress).toMatchObject({ created: 1, skipped: 1 });
   });
@@ -272,6 +259,6 @@ describe("useBookmarkImport", () => {
     });
     const { result } = renderImportHook();
     await act(() => result.current.start([row({ url: "https://example.com/reference(a)" })]));
-    expect(mocks.createMemo).not.toHaveBeenCalled();
+    expect(mocks.saveBookmark).not.toHaveBeenCalled();
   });
 });

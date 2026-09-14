@@ -1,3 +1,4 @@
+import { create } from "@bufbuild/protobuf";
 import { useQueryClient } from "@tanstack/react-query";
 import copy from "copy-to-clipboard";
 import { useCallback } from "react";
@@ -11,7 +12,7 @@ import { userKeys } from "@/hooks/useUserQueries";
 import { handleError } from "@/lib/error";
 import { ROUTES } from "@/router/routes";
 import { State } from "@/types/proto/api/v1/common_pb";
-import type { Memo } from "@/types/proto/api/v1/memo_service_pb";
+import { BookmarkSchema, type Memo } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import { checkAllTasks, uncheckAllTasks } from "@/utils/markdown-task-actions";
 import { isMemoDetailPath } from "../MemoView/navigation";
@@ -79,6 +80,17 @@ export const useMemoActionHandlers = ({ memo, parentPage, onEdit, setDeleteDialo
     }
   }, [memo.name, memo.pinned, updateMemo]);
 
+  const handleToggleFavoriteBookmarkClick = useCallback(async () => {
+    if (!memo.bookmark) return;
+    await updateMemo({
+      update: {
+        name: memo.name,
+        bookmark: create(BookmarkSchema, { ...memo.bookmark, favorited: !memo.bookmark.favorited }),
+      },
+      updateMask: ["bookmark.favorited"],
+    });
+  }, [memo.bookmark, memo.name, updateMemo]);
+
   const handleEditMemoClick = useCallback(() => {
     onEdit?.();
   }, [onEdit]);
@@ -133,13 +145,6 @@ export const useMemoActionHandlers = ({ memo, parentPage, onEdit, setDeleteDialo
     await updateMemoContent(uncheckAllTasks(memo.content), "Uncheck memo task list items");
   }, [memo.content, updateMemoContent]);
 
-  // Removes the #unread tag left by bookmark capture.
-  // ponytail: regex tag removal; use the markdown rename service if tags ever
-  // grow syntax beyond #word.
-  const handleMarkAsReadClick = useCallback(async () => {
-    await updateMemoContent(memo.content.replace(/\s*#unread(?![\w/])/g, ""), "Mark memo as read");
-  }, [memo.content, updateMemoContent]);
-
   const handleDeleteMemoClick = useCallback(() => {
     setDeleteDialogOpen(true);
   }, [setDeleteDialogOpen]);
@@ -165,13 +170,13 @@ export const useMemoActionHandlers = ({ memo, parentPage, onEdit, setDeleteDialo
   return {
     canMove,
     handleTogglePinMemoBtnClick,
+    handleToggleFavoriteBookmarkClick,
     handleEditMemoClick,
     handleToggleMemoStatusClick,
     handleCopyLink,
     handleCopyContent,
     handleCheckAllTaskListItemsClick,
     handleUncheckAllTaskListItemsClick,
-    handleMarkAsReadClick,
     handleDeleteMemoClick,
     confirmDeleteMemo,
   };

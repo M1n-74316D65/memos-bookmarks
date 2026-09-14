@@ -14,6 +14,10 @@ message MemoPayload {
   // Metadata for links found in the memo content, persisted at write time.
   repeated LinkMetadata links = 4;
 
+  // Bookmark identity and lifecycle metadata. Unlike Property, this is set by
+  // the caller and survives content-derived payload rebuilds.
+  Bookmark bookmark = 5;
+
   // The calculated properties from the memo content.
   message Property {
     bool has_link = 1;
@@ -49,4 +53,17 @@ message MemoPayload {
     int32 cover_width = 9;
     int32 cover_height = 10;
   }
+}
+
+message Bookmark {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    LINK = 1;
+    TEXT = 2;
+    ASSET = 3;
+  }
+
+  Type type = 1;
+  string source_url = 2;
+  bool favorited = 3;
 }

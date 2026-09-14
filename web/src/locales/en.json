@@ -263,13 +263,17 @@
     "yourself": "Yourself"
   },
   "bookmarks": {
-    "description": "Your saved links, ready to revisit.",
+    "description": "Links, notes, and files saved for later.",
+    "composer-placeholder": "Paste a link or save a note...",
+    "bookmarklet": "Bookmarklet",
     "empty": "No bookmarks yet. Save a link or import a CSV to start your library.",
     "empty-archive": "No archived bookmarks.",
     "no-results": "No bookmarks match your filters. Try changing or clearing them.",
     "views-label": "Bookmark views",
     "unread": "Unread",
     "favorites": "Favorites",
+    "add-favorite": "Add to favorites",
+    "remove-favorite": "Remove from favorites",
     "archive": "Archive",
     "open-original": "Open original",
     "search-placeholder": "Search bookmarks",

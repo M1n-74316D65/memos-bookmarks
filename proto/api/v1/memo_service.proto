@@ -26,6 +26,15 @@ service MemoService {
     };
     option (google.api.method_signature) = "memo";
   }
+  // SaveBookmark creates a bookmark or restores an existing link bookmark.
+  // Link bookmarks are deduplicated per user by their normalized source URL.
+  rpc SaveBookmark(SaveBookmarkRequest) returns (Memo) {
+    option (google.api.http) = {
+      post: "/api/v1/bookmarks"
+      body: "bookmark"
+    };
+    option (google.api.method_signature) = "bookmark";
+  }
   // ListMemos lists readable non-comment memos with pagination and filter.
   rpc ListMemos(ListMemosRequest) returns (ListMemosResponse) {
     option (google.api.http) = {get: "/api/v1/memos"};
@@ -288,6 +297,9 @@ message Memo {
     (google.api.resource_reference) = {type: "memos.api.v1/Space"}
   ];
 
+  // Optional. Present when this memo is explicitly part of the bookmark library.
+  optional Bookmark bookmark = 20 [(google.api.field_behavior) = OPTIONAL];
+
   // Computed properties of a memo.
   message Property {
     bool has_link = 1;
@@ -299,6 +311,25 @@ message Memo {
     // Metadata for links found in the memo content, persisted at write time.
     repeated LinkMetadata links = 6;
   }
+}
+
+// Bookmark identifies the bookmark-specific behavior layered on a memo.
+message Bookmark {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    LINK = 1;
+    TEXT = 2;
+    ASSET = 3;
+  }
+
+  // Required. The bookmark's content type.
+  Type type = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Required for LINK bookmarks. Must be an absolute HTTP(S) URL.
+  string source_url = 2 [(google.api.field_behavior) = OPTIONAL];
+
+  // Whether the bookmark appears in Favorites.
+  bool favorited = 3 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message Location {
@@ -320,6 +351,11 @@ message CreateMemoRequest {
   // If empty, a unique ID will be generated.
   // Format: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,34}[a-zA-Z0-9])?$
   string memo_id = 2 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message SaveBookmarkRequest {
+  // Required. A memo carrying bookmark metadata.
+  Memo bookmark = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
 message ListMemosRequest {

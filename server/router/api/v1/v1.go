@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/usememos/memos/internal/httpgetter"
 	"github.com/usememos/memos/internal/markdown"
@@ -61,6 +62,7 @@ type APIV1Service struct {
 
 	linkMetadataFetcher linkMetadataFetcher
 	attachmentUploads   attachmentUploads
+	bookmarkSaves       singleflight.Group
 }
 
 // NewAPIV1Service creates an API v1 service with its shared dependencies.

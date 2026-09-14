@@ -50,6 +50,7 @@ vi.mock("@/components/PagedMemoList", () => ({
 vi.mock("@/components/MemoView", () => ({
   default: (props: MemoViewProps) => <div data-testid="summary" data-variant={props.variant} data-pinned={props.showPinned} />,
 }));
+vi.mock("@/components/MemoEditor", () => ({ default: () => <div data-testid="bookmark-composer" /> }));
 vi.mock("@/components/MemoDisplaySettingMenu", () => ({ default: () => <button type="button">View options</button> }));
 vi.mock("@/contexts/AppSidebarContext", () => ({ useAppSidebar: () => ({ setQuickFindOpen: state.setQuickFindOpen }) }));
 vi.mock("@/contexts/MemoFilterContext", () => ({
@@ -63,7 +64,7 @@ vi.mock("@/hooks", () => ({
 }));
 vi.mock("@/hooks/useCurrentUser", () => ({ default: () => ({ name: "users/u1" }) }));
 vi.mock("@/contexts/SpaceContext", () => ({ useSpaceContext: () => ({ memoFilter: state.spaceFilter }) }));
-vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key }));
+vi.mock("@/utils/i18n", () => ({ useTranslate: () => (key: string) => key, findNearestMatchedLanguage: () => "en" }));
 
 const LocationObserver = () => {
   state.locationSearch = useLocation().search;
@@ -91,18 +92,19 @@ describe("<Bookmarks>", () => {
     state.locationSearch = "";
   });
 
-  it("places page actions above all columns and keeps single-column bookmarks as pinned summaries", () => {
+  it("places page actions and the inline composer above the bookmark grid", () => {
     renderPage();
     expect(screen.getByTestId("page-header")).toContainElement(screen.getByRole("heading", { name: "common.bookmarks" }));
+    expect(screen.getByTestId("bookmark-composer")).toBeInTheDocument();
     expect(screen.getByTestId("summary")).toHaveAttribute("data-variant", "bento");
-    expect(screen.getByTestId("summary")).toHaveAttribute("data-pinned", "true");
+    expect(screen.getByTestId("summary")).not.toHaveAttribute("data-pinned", "true");
   });
 
   it("opens existing search from the library toolbar and retains capture origin", () => {
     renderPage("/bookmarks?filter=tagSearch:reading");
     fireEvent.click(screen.getByRole("button", { name: "bookmarks.search-placeholder" }));
     expect(state.setQuickFindOpen).toHaveBeenCalledWith(true);
-    expect(screen.getByRole("link", { name: "common.save-link" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "bookmarks.bookmarklet" })).toHaveAttribute(
       "href",
       "/bookmark?returnTo=%2Fbookmarks%3Ffilter%3DtagSearch%3Areading",
     );
@@ -120,29 +122,28 @@ describe("<Bookmarks>", () => {
     expect(state.listProps[0]?.emptyActions).toBeDefined();
   });
 
-  it("feeds only link memos via the has_link filter", () => {
+  it("feeds only explicit bookmarks", () => {
     renderPage();
 
-    expect(state.listProps[0]?.contextFilter).toBe("(has_link)");
+    expect(state.listProps[0]?.contextFilter).toBe("(is_bookmark)");
   });
 
-  it("combines has_link with the remembered Space scope", () => {
+  it("combines bookmark membership with the remembered Space scope", () => {
     state.spaceFilter = 'space == "spaces/s1"';
     renderPage();
 
-    expect(state.listProps[0]?.contextFilter).toBe('(has_link) && (space == "spaces/s1")');
+    expect(state.listProps[0]?.contextFilter).toBe('(is_bookmark) && (space == "spaces/s1")');
   });
 
-  it("switches between unread and favorites without discarding unrelated filters", () => {
-    state.filters = [
-      { factor: "contentSearch", value: "design" },
-      { factor: "tagSearch", value: "unread" },
-    ];
-    renderPage();
+  it("switches to favorites without discarding unrelated filters", () => {
+    state.filters = [{ factor: "contentSearch", value: "design" }];
+    renderPage("/bookmarks?filter=contentSearch:design");
 
     fireEvent.click(screen.getByRole("tab", { name: "bookmarks.favorites" }));
 
-    expect(new URLSearchParams(state.locationSearch).get("filter")).toBe("contentSearch:design,pinned:");
+    expect(new URLSearchParams(state.locationSearch).get("filter")).toBe("contentSearch:design");
+    expect(new URLSearchParams(state.locationSearch).get("view")).toBe("favorites");
+    expect(state.listProps.at(-1)?.contextFilter).toBe("(is_bookmark) && (bookmark_favorited)");
   });
 
   it("keeps archived bookmarks inside the library shell", () => {

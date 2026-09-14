@@ -45,6 +45,9 @@ func (s *APIV1Service) CreateMemoComment(ctx context.Context, request *v1pb.Crea
 	if request.Comment == nil {
 		return nil, status.Errorf(codes.InvalidArgument, "comment is required")
 	}
+	if request.Comment.Bookmark != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "comments cannot be bookmarks")
+	}
 
 	memoUID, err = ValidateAndGenerateUID(request.CommentId)
 	if err != nil {

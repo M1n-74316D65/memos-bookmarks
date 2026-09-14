@@ -570,6 +570,28 @@ func TestRenderHasLocationPerDialect(t *testing.T) {
 	}
 }
 
+func TestRenderBookmarkFiltersPerDialect(t *testing.T) {
+	t.Parallel()
+
+	engine, err := NewEngine(NewSchema())
+	require.NoError(t, err)
+
+	cases := []struct {
+		dialect DialectName
+		sql     string
+	}{
+		{DialectSQLite, "(JSON_EXTRACT(`memo`.`payload`, '$.bookmark') IS NOT NULL AND JSON_EXTRACT(`memo`.`payload`, '$.bookmark.favorited') IS TRUE)"},
+		{DialectMySQL, "(COALESCE(JSON_TYPE(JSON_EXTRACT(`memo`.`payload`, '$.bookmark')), 'NULL') != 'NULL' AND COALESCE(JSON_EXTRACT(`memo`.`payload`, '$.bookmark.favorited'), CAST('false' AS JSON)) = CAST('true' AS JSON))"},
+		{DialectPostgres, "(memo.payload->>'bookmark' IS NOT NULL AND (memo.payload->'bookmark'->>'favorited')::boolean IS TRUE)"},
+	}
+	for _, tc := range cases {
+		stmt, err := engine.CompileToStatement(context.Background(), `is_bookmark && bookmark_favorited`, RenderOptions{Dialect: tc.dialect})
+		require.NoError(t, err, tc.dialect)
+		require.Equal(t, tc.sql, stmt.SQL, tc.dialect)
+		require.Empty(t, stmt.Args, tc.dialect)
+	}
+}
+
 func TestRenderHasLocationNegationAndComparisons(t *testing.T) {
 	t.Parallel()
 

@@ -124,6 +124,18 @@ func (s *APIV1Service) EnrichMemoLinks(ctx context.Context, memo *store.Memo) {
 		return
 	}
 	links := data.Links
+	if bookmark := memo.Payload.GetBookmark(); bookmark.GetType() == storepb.Bookmark_LINK && bookmark.GetSourceUrl() != "" {
+		found := false
+		for _, link := range links {
+			if link == bookmark.GetSourceUrl() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			links = append([]string{bookmark.GetSourceUrl()}, links...)
+		}
+	}
 	if len(links) > maxEnrichLinksPerMemo {
 		links = links[:maxEnrichLinksPerMemo]
 	}

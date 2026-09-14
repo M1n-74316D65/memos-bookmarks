@@ -21,13 +21,68 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Bookmark_Type int32
+
+const (
+	Bookmark_TYPE_UNSPECIFIED Bookmark_Type = 0
+	Bookmark_LINK             Bookmark_Type = 1
+	Bookmark_TEXT             Bookmark_Type = 2
+	Bookmark_ASSET            Bookmark_Type = 3
+)
+
+// Enum value maps for Bookmark_Type.
+var (
+	Bookmark_Type_name = map[int32]string{
+		0: "TYPE_UNSPECIFIED",
+		1: "LINK",
+		2: "TEXT",
+		3: "ASSET",
+	}
+	Bookmark_Type_value = map[string]int32{
+		"TYPE_UNSPECIFIED": 0,
+		"LINK":             1,
+		"TEXT":             2,
+		"ASSET":            3,
+	}
+)
+
+func (x Bookmark_Type) Enum() *Bookmark_Type {
+	p := new(Bookmark_Type)
+	*p = x
+	return p
+}
+
+func (x Bookmark_Type) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Bookmark_Type) Descriptor() protoreflect.EnumDescriptor {
+	return file_store_memo_proto_enumTypes[0].Descriptor()
+}
+
+func (Bookmark_Type) Type() protoreflect.EnumType {
+	return &file_store_memo_proto_enumTypes[0]
+}
+
+func (x Bookmark_Type) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Bookmark_Type.Descriptor instead.
+func (Bookmark_Type) EnumDescriptor() ([]byte, []int) {
+	return file_store_memo_proto_rawDescGZIP(), []int{1, 0}
+}
+
 type MemoPayload struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Property *MemoPayload_Property  `protobuf:"bytes,1,opt,name=property,proto3" json:"property,omitempty"`
 	Location *MemoPayload_Location  `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
 	Tags     []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
 	// Metadata for links found in the memo content, persisted at write time.
-	Links         []*MemoPayload_LinkMetadata `protobuf:"bytes,4,rep,name=links,proto3" json:"links,omitempty"`
+	Links []*MemoPayload_LinkMetadata `protobuf:"bytes,4,rep,name=links,proto3" json:"links,omitempty"`
+	// Bookmark identity and lifecycle metadata. Unlike Property, this is set by
+	// the caller and survives content-derived payload rebuilds.
+	Bookmark      *Bookmark `protobuf:"bytes,5,opt,name=bookmark,proto3" json:"bookmark,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -90,6 +145,73 @@ func (x *MemoPayload) GetLinks() []*MemoPayload_LinkMetadata {
 	return nil
 }
 
+func (x *MemoPayload) GetBookmark() *Bookmark {
+	if x != nil {
+		return x.Bookmark
+	}
+	return nil
+}
+
+type Bookmark struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          Bookmark_Type          `protobuf:"varint,1,opt,name=type,proto3,enum=memos.store.Bookmark_Type" json:"type,omitempty"`
+	SourceUrl     string                 `protobuf:"bytes,2,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	Favorited     bool                   `protobuf:"varint,3,opt,name=favorited,proto3" json:"favorited,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Bookmark) Reset() {
+	*x = Bookmark{}
+	mi := &file_store_memo_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Bookmark) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Bookmark) ProtoMessage() {}
+
+func (x *Bookmark) ProtoReflect() protoreflect.Message {
+	mi := &file_store_memo_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Bookmark.ProtoReflect.Descriptor instead.
+func (*Bookmark) Descriptor() ([]byte, []int) {
+	return file_store_memo_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Bookmark) GetType() Bookmark_Type {
+	if x != nil {
+		return x.Type
+	}
+	return Bookmark_TYPE_UNSPECIFIED
+}
+
+func (x *Bookmark) GetSourceUrl() string {
+	if x != nil {
+		return x.SourceUrl
+	}
+	return ""
+}
+
+func (x *Bookmark) GetFavorited() bool {
+	if x != nil {
+		return x.Favorited
+	}
+	return false
+}
+
 // The calculated properties from the memo content.
 type MemoPayload_Property struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
@@ -105,7 +227,7 @@ type MemoPayload_Property struct {
 
 func (x *MemoPayload_Property) Reset() {
 	*x = MemoPayload_Property{}
-	mi := &file_store_memo_proto_msgTypes[1]
+	mi := &file_store_memo_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -117,7 +239,7 @@ func (x *MemoPayload_Property) String() string {
 func (*MemoPayload_Property) ProtoMessage() {}
 
 func (x *MemoPayload_Property) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[1]
+	mi := &file_store_memo_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -179,7 +301,7 @@ type MemoPayload_Location struct {
 
 func (x *MemoPayload_Location) Reset() {
 	*x = MemoPayload_Location{}
-	mi := &file_store_memo_proto_msgTypes[2]
+	mi := &file_store_memo_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -191,7 +313,7 @@ func (x *MemoPayload_Location) String() string {
 func (*MemoPayload_Location) ProtoMessage() {}
 
 func (x *MemoPayload_Location) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[2]
+	mi := &file_store_memo_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -253,7 +375,7 @@ type MemoPayload_LinkMetadata struct {
 
 func (x *MemoPayload_LinkMetadata) Reset() {
 	*x = MemoPayload_LinkMetadata{}
-	mi := &file_store_memo_proto_msgTypes[3]
+	mi := &file_store_memo_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -265,7 +387,7 @@ func (x *MemoPayload_LinkMetadata) String() string {
 func (*MemoPayload_LinkMetadata) ProtoMessage() {}
 
 func (x *MemoPayload_LinkMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[3]
+	mi := &file_store_memo_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -355,12 +477,13 @@ var File_store_memo_proto protoreflect.FileDescriptor
 
 const file_store_memo_proto_rawDesc = "" +
 	"\n" +
-	"\x10store/memo.proto\x12\vmemos.store\"\xd3\x06\n" +
+	"\x10store/memo.proto\x12\vmemos.store\"\x86\a\n" +
 	"\vMemoPayload\x12=\n" +
 	"\bproperty\x18\x01 \x01(\v2!.memos.store.MemoPayload.PropertyR\bproperty\x12=\n" +
 	"\blocation\x18\x02 \x01(\v2!.memos.store.MemoPayload.LocationR\blocation\x12\x12\n" +
 	"\x04tags\x18\x03 \x03(\tR\x04tags\x12;\n" +
-	"\x05links\x18\x04 \x03(\v2%.memos.store.MemoPayload.LinkMetadataR\x05links\x1a\xac\x01\n" +
+	"\x05links\x18\x04 \x03(\v2%.memos.store.MemoPayload.LinkMetadataR\x05links\x121\n" +
+	"\bbookmark\x18\x05 \x01(\v2\x15.memos.store.BookmarkR\bbookmark\x1a\xac\x01\n" +
 	"\bProperty\x12\x19\n" +
 	"\bhas_link\x18\x01 \x01(\bR\ahasLink\x12\"\n" +
 	"\rhas_task_list\x18\x02 \x01(\bR\vhasTaskList\x12\x19\n" +
@@ -383,7 +506,17 @@ const file_store_memo_proto_rawDesc = "" +
 	"\vcover_width\x18\t \x01(\x05R\n" +
 	"coverWidth\x12!\n" +
 	"\fcover_height\x18\n" +
-	" \x01(\x05R\vcoverHeightB\x94\x01\n" +
+	" \x01(\x05R\vcoverHeight\"\xb4\x01\n" +
+	"\bBookmark\x12.\n" +
+	"\x04type\x18\x01 \x01(\x0e2\x1a.memos.store.Bookmark.TypeR\x04type\x12\x1d\n" +
+	"\n" +
+	"source_url\x18\x02 \x01(\tR\tsourceUrl\x12\x1c\n" +
+	"\tfavorited\x18\x03 \x01(\bR\tfavorited\";\n" +
+	"\x04Type\x12\x14\n" +
+	"\x10TYPE_UNSPECIFIED\x10\x00\x12\b\n" +
+	"\x04LINK\x10\x01\x12\b\n" +
+	"\x04TEXT\x10\x02\x12\t\n" +
+	"\x05ASSET\x10\x03B\x94\x01\n" +
 	"\x0fcom.memos.storeB\tMemoProtoP\x01Z)github.com/usememos/memos/proto/gen/store\xa2\x02\x03MSX\xaa\x02\vMemos.Store\xca\x02\vMemos\\Store\xe2\x02\x17Memos\\Store\\GPBMetadata\xea\x02\fMemos::Storeb\x06proto3"
 
 var (
@@ -398,22 +531,27 @@ func file_store_memo_proto_rawDescGZIP() []byte {
 	return file_store_memo_proto_rawDescData
 }
 
-var file_store_memo_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_store_memo_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_store_memo_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_store_memo_proto_goTypes = []any{
-	(*MemoPayload)(nil),              // 0: memos.store.MemoPayload
-	(*MemoPayload_Property)(nil),     // 1: memos.store.MemoPayload.Property
-	(*MemoPayload_Location)(nil),     // 2: memos.store.MemoPayload.Location
-	(*MemoPayload_LinkMetadata)(nil), // 3: memos.store.MemoPayload.LinkMetadata
+	(Bookmark_Type)(0),               // 0: memos.store.Bookmark.Type
+	(*MemoPayload)(nil),              // 1: memos.store.MemoPayload
+	(*Bookmark)(nil),                 // 2: memos.store.Bookmark
+	(*MemoPayload_Property)(nil),     // 3: memos.store.MemoPayload.Property
+	(*MemoPayload_Location)(nil),     // 4: memos.store.MemoPayload.Location
+	(*MemoPayload_LinkMetadata)(nil), // 5: memos.store.MemoPayload.LinkMetadata
 }
 var file_store_memo_proto_depIdxs = []int32{
-	1, // 0: memos.store.MemoPayload.property:type_name -> memos.store.MemoPayload.Property
-	2, // 1: memos.store.MemoPayload.location:type_name -> memos.store.MemoPayload.Location
-	3, // 2: memos.store.MemoPayload.links:type_name -> memos.store.MemoPayload.LinkMetadata
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 0: memos.store.MemoPayload.property:type_name -> memos.store.MemoPayload.Property
+	4, // 1: memos.store.MemoPayload.location:type_name -> memos.store.MemoPayload.Location
+	5, // 2: memos.store.MemoPayload.links:type_name -> memos.store.MemoPayload.LinkMetadata
+	2, // 3: memos.store.MemoPayload.bookmark:type_name -> memos.store.Bookmark
+	0, // 4: memos.store.Bookmark.type:type_name -> memos.store.Bookmark.Type
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_store_memo_proto_init() }
@@ -426,13 +564,14 @@ func file_store_memo_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_store_memo_proto_rawDesc), len(file_store_memo_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   4,
+			NumEnums:      1,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_store_memo_proto_goTypes,
 		DependencyIndexes: file_store_memo_proto_depIdxs,
+		EnumInfos:         file_store_memo_proto_enumTypes,
 		MessageInfos:      file_store_memo_proto_msgTypes,
 	}.Build()
 	File_store_memo_proto = out.File

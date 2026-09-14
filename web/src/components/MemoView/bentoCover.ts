@@ -20,6 +20,11 @@ export const getBentoCoverUrl = (memo: Memo, shareToken?: string): string | unde
 
 /** First safe source destination for opening a saved link. */
 export const getBentoTileSourceUrl = (memo: Memo): URL | undefined => {
+  const bookmarkSource = memo.bookmark?.sourceUrl;
+  if (bookmarkSource && URL.canParse(bookmarkSource)) {
+    const url = new URL(bookmarkSource);
+    if (url.protocol === "https:" || url.protocol === "http:") return url;
+  }
   for (const link of memo.property?.links ?? []) {
     if (!URL.canParse(link.url)) continue;
     const url = new URL(link.url);

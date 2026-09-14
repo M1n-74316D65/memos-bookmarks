@@ -353,6 +353,33 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Status'
+    /api/v1/bookmarks:
+        post:
+            tags:
+                - MemoService
+            description: |-
+                SaveBookmark creates a bookmark or restores an existing link bookmark.
+                 Link bookmarks are deduplicated per user by their normalized source URL.
+            operationId: MemoService_SaveBookmark
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Memo'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Memo'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
     /api/v1/identity-providers:
         get:
             tags:
@@ -3092,6 +3119,27 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/User'
+        Bookmark:
+            required:
+                - type
+            type: object
+            properties:
+                type:
+                    enum:
+                        - TYPE_UNSPECIFIED
+                        - LINK
+                        - TEXT
+                        - ASSET
+                    type: string
+                    description: Required. The bookmark's content type.
+                    format: enum
+                sourceUrl:
+                    type: string
+                    description: Required for LINK bookmarks. Must be an absolute HTTP(S) URL.
+                favorited:
+                    type: boolean
+                    description: Whether the bookmark appears in Favorites.
+            description: Bookmark identifies the bookmark-specific behavior layered on a memo.
         Color:
             type: object
             properties:
@@ -4085,6 +4133,10 @@ components:
                     description: |-
                         Optional. The space in which this memo is placed. Format: spaces/{space}.
                          Every memo, including a comment, owns its placement independently.
+                bookmark:
+                    allOf:
+                        - $ref: '#/components/schemas/Bookmark'
+                    description: Optional. Present when this memo is explicitly part of the bookmark library.
         MemoRelation:
             required:
                 - memo

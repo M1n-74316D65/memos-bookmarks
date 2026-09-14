@@ -15,7 +15,7 @@ import { userKeys } from "@/hooks/useUserQueries";
 import { buildBookmarkContent, normalizeBookmarkUrl } from "@/lib/bookmark";
 import { buildMemoCreatorFilter } from "@/lib/resource-names";
 import { State } from "@/types/proto/api/v1/common_pb";
-import { ListMemosRequestSchema, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
+import { Bookmark_Type, BookmarkSchema, ListMemosRequestSchema, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 import type { RaindropRow } from "./csv";
 import { slugifyTag } from "./slugifyTag";
 
@@ -41,7 +41,7 @@ async function collectExistingUrlsForState(creator: string, state: State, signal
     signal.throwIfAborted();
     const response = await memoServiceClient.listMemos(
       create(ListMemosRequestSchema, {
-        filter: `has_link && ${buildMemoCreatorFilter(creator)}`,
+        filter: `is_bookmark && ${buildMemoCreatorFilter(creator)}`,
         pageSize: 200,
         pageToken,
         state,
@@ -51,6 +51,9 @@ async function collectExistingUrlsForState(creator: string, state: State, signal
     );
     signal.throwIfAborted();
     for (const memo of response.memos) {
+      if (memo.bookmark?.sourceUrl) {
+        urls.add(normalizeBookmarkUrl(memo.bookmark.sourceUrl));
+      }
       for (const link of memo.property?.links ?? []) {
         if (link.url) {
           urls.add(normalizeBookmarkUrl(link.url));
@@ -80,7 +83,6 @@ async function collectExistingUrlsForState(creator: string, state: State, signal
 async function collectExistingUrls(creator: string, signal: AbortSignal): Promise<Set<string>> {
   const urls = new Set<string>();
   await collectExistingUrlsForState(creator, State.NORMAL, signal, urls);
-  await collectExistingUrlsForState(creator, State.ARCHIVED, signal, urls);
   return urls;
 }
 
@@ -165,8 +167,12 @@ export function useBookmarkImport() {
           if (index >= pending.length) return;
           const row = pending[index];
           try {
-            const memo = create(MemoSchema, { content: buildMemoContent(row), space: selectedSpaceName });
-            await memoServiceClient.createMemo({ memo });
+            const memo = create(MemoSchema, {
+              content: buildMemoContent(row),
+              space: selectedSpaceName,
+              bookmark: create(BookmarkSchema, { type: Bookmark_Type.LINK, sourceUrl: row.url }),
+            });
+            await memoServiceClient.saveBookmark({ bookmark: memo });
             created++;
           } catch (error) {
             failed++;

@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	MemoService_CreateMemo_FullMethodName            = "/memos.api.v1.MemoService/CreateMemo"
+	MemoService_SaveBookmark_FullMethodName          = "/memos.api.v1.MemoService/SaveBookmark"
 	MemoService_ListMemos_FullMethodName             = "/memos.api.v1.MemoService/ListMemos"
 	MemoService_GetMemo_FullMethodName               = "/memos.api.v1.MemoService/GetMemo"
 	MemoService_UpdateMemo_FullMethodName            = "/memos.api.v1.MemoService/UpdateMemo"
@@ -52,6 +53,9 @@ type MemoServiceClient interface {
 	// default PRIVATE).
 	// The memo is owned by the authenticated user; requires authentication.
 	CreateMemo(ctx context.Context, in *CreateMemoRequest, opts ...grpc.CallOption) (*Memo, error)
+	// SaveBookmark creates a bookmark or restores an existing link bookmark.
+	// Link bookmarks are deduplicated per user by their normalized source URL.
+	SaveBookmark(ctx context.Context, in *SaveBookmarkRequest, opts ...grpc.CallOption) (*Memo, error)
 	// ListMemos lists readable non-comment memos with pagination and filter.
 	ListMemos(ctx context.Context, in *ListMemosRequest, opts ...grpc.CallOption) (*ListMemosResponse, error)
 	// GetMemo gets a memo.
@@ -115,6 +119,16 @@ func (c *memoServiceClient) CreateMemo(ctx context.Context, in *CreateMemoReques
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Memo)
 	err := c.cc.Invoke(ctx, MemoService_CreateMemo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoServiceClient) SaveBookmark(ctx context.Context, in *SaveBookmarkRequest, opts ...grpc.CallOption) (*Memo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Memo)
+	err := c.cc.Invoke(ctx, MemoService_SaveBookmark_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -330,6 +344,9 @@ type MemoServiceServer interface {
 	// default PRIVATE).
 	// The memo is owned by the authenticated user; requires authentication.
 	CreateMemo(context.Context, *CreateMemoRequest) (*Memo, error)
+	// SaveBookmark creates a bookmark or restores an existing link bookmark.
+	// Link bookmarks are deduplicated per user by their normalized source URL.
+	SaveBookmark(context.Context, *SaveBookmarkRequest) (*Memo, error)
 	// ListMemos lists readable non-comment memos with pagination and filter.
 	ListMemos(context.Context, *ListMemosRequest) (*ListMemosResponse, error)
 	// GetMemo gets a memo.
@@ -391,6 +408,9 @@ type UnimplementedMemoServiceServer struct{}
 
 func (UnimplementedMemoServiceServer) CreateMemo(context.Context, *CreateMemoRequest) (*Memo, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateMemo not implemented")
+}
+func (UnimplementedMemoServiceServer) SaveBookmark(context.Context, *SaveBookmarkRequest) (*Memo, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveBookmark not implemented")
 }
 func (UnimplementedMemoServiceServer) ListMemos(context.Context, *ListMemosRequest) (*ListMemosResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMemos not implemented")
@@ -487,6 +507,24 @@ func _MemoService_CreateMemo_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MemoServiceServer).CreateMemo(ctx, req.(*CreateMemoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoService_SaveBookmark_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveBookmarkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoServiceServer).SaveBookmark(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoService_SaveBookmark_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoServiceServer).SaveBookmark(ctx, req.(*SaveBookmarkRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -861,6 +899,10 @@ var MemoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateMemo",
 			Handler:    _MemoService_CreateMemo_Handler,
+		},
+		{
+			MethodName: "SaveBookmark",
+			Handler:    _MemoService_SaveBookmark_Handler,
 		},
 		{
 			MethodName: "ListMemos",

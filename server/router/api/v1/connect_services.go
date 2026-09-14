@@ -356,6 +356,14 @@ func (s *ConnectServiceHandler) CreateMemo(ctx context.Context, req *connect.Req
 	return connect.NewResponse(resp), nil
 }
 
+func (s *ConnectServiceHandler) SaveBookmark(ctx context.Context, req *connect.Request[v1pb.SaveBookmarkRequest]) (*connect.Response[v1pb.Memo], error) {
+	resp, err := s.APIV1Service.SaveBookmark(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
 func (s *ConnectServiceHandler) ListMemos(ctx context.Context, req *connect.Request[v1pb.ListMemosRequest]) (*connect.Response[v1pb.ListMemosResponse], error) {
 	resp, err := s.APIV1Service.ListMemos(ctx, req.Msg)
 	if err != nil {

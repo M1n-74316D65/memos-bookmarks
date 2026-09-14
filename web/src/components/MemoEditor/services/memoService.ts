@@ -3,10 +3,11 @@ import { FieldMaskSchema, timestampDate, timestampFromDate } from "@bufbuild/pro
 import { isEqual } from "lodash-es";
 import { getEditorReferenceRelations } from "@/components/MemoMetadata/Relation/relationHelpers";
 import { memoServiceClient } from "@/connect";
+import { isValidBookmarkUrl } from "@/lib/bookmark";
 import type { Attachment } from "@/types/proto/api/v1/attachment_service_pb";
 import { AttachmentSchema } from "@/types/proto/api/v1/attachment_service_pb";
 import type { Memo } from "@/types/proto/api/v1/memo_service_pb";
-import { MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
+import { Bookmark_Type, BookmarkSchema, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 import type { EditorState } from "../state";
 import { uploadService } from "./uploadService";
 
@@ -83,6 +84,8 @@ export const memoService = {
       memoName?: string;
       parentMemoName?: string;
       space?: string;
+      createAsBookmark?: boolean;
+      bookmarkSourceUrl?: string;
     },
   ): Promise<{ memoName: string; hasChanges: boolean }> {
     // 1. Upload local files first
@@ -106,6 +109,13 @@ export const memoService = {
     }
 
     // 3. Create new memo or comment
+    const sourceUrl = options.bookmarkSourceUrl?.trim() || (isValidBookmarkUrl(state.content.trim()) ? state.content.trim() : "");
+    const bookmark = options.createAsBookmark
+      ? create(BookmarkSchema, {
+          type: sourceUrl ? Bookmark_Type.LINK : allAttachments.length > 0 ? Bookmark_Type.ASSET : Bookmark_Type.TEXT,
+          sourceUrl,
+        })
+      : undefined;
     const memoData = create(MemoSchema, {
       content: state.content,
       visibility: state.metadata.visibility,
@@ -115,6 +125,7 @@ export const memoService = {
       createTime: state.timestamps.createTime ? timestampFromDate(state.timestamps.createTime) : undefined,
       updateTime: state.timestamps.updateTime ? timestampFromDate(state.timestamps.updateTime) : undefined,
       space: options.parentMemoName ? undefined : options.space,
+      bookmark,
     });
 
     const memo = options.parentMemoName
@@ -122,7 +133,9 @@ export const memoService = {
           name: options.parentMemoName,
           comment: memoData,
         })
-      : await memoServiceClient.createMemo({ memo: memoData });
+      : options.createAsBookmark
+        ? await memoServiceClient.saveBookmark({ bookmark: memoData })
+        : await memoServiceClient.createMemo({ memo: memoData });
 
     return { memoName: memo.name, hasChanges: true };
   },

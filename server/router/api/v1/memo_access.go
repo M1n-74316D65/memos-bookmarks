@@ -150,6 +150,8 @@ func mapMemoWriteError(err error, operation string) error {
 	switch {
 	case stderrors.Is(err, store.ErrMemoMutationConflict):
 		return status.Errorf(codes.FailedPrecondition, "memo state changed: %v", err)
+	case stderrors.Is(err, store.ErrMemoConcurrentUpdate):
+		return status.Error(codes.Aborted, "memo changed during update")
 	case stderrors.Is(err, store.ErrMemoSpaceNotWritable):
 		return status.Error(codes.FailedPrecondition, "memo space is no longer writable")
 	case stderrors.Is(err, store.ErrMemoSpaceMembershipRequired), stderrors.Is(err, store.ErrMemoPermissionDenied):

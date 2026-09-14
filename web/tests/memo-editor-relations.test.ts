@@ -2,7 +2,9 @@ import { create } from "@bufbuild/protobuf";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoService } from "@/components/MemoEditor/services/memoService";
 import { createInitialState, type EditorState } from "@/components/MemoEditor/state";
+import { AttachmentSchema } from "@/types/proto/api/v1/attachment_service_pb";
 import {
+  Bookmark_Type,
   type Memo,
   MemoRelation_MemoSchema,
   MemoRelation_Type,
@@ -14,6 +16,7 @@ const clients = vi.hoisted(() => ({
   createMemo: vi.fn(),
   createMemoComment: vi.fn(),
   getMemo: vi.fn(),
+  saveBookmark: vi.fn(),
   updateMemo: vi.fn(),
 }));
 
@@ -25,6 +28,7 @@ vi.mock("@/connect", () => ({
     createMemo: clients.createMemo,
     createMemoComment: clients.createMemoComment,
     getMemo: clients.getMemo,
+    saveBookmark: clients.saveBookmark,
     updateMemo: clients.updateMemo,
   },
 }));
@@ -54,6 +58,9 @@ describe("memo editor relation updates", () => {
       .mockReset()
       .mockImplementation(async ({ comment }: { comment: Memo }) => ({ ...comment, name: "memos/comment" }));
     clients.getMemo.mockReset();
+    clients.saveBookmark
+      .mockReset()
+      .mockImplementation(async ({ bookmark }: { bookmark: Memo }) => ({ ...bookmark, name: "memos/bookmark" }));
     clients.updateMemo.mockReset();
     clients.updateMemo.mockImplementation(async ({ memo }: { memo: Memo }) => memo);
   });
@@ -80,6 +87,35 @@ describe("memo editor relation updates", () => {
     expect(request.name).toBe("memos/parent");
     expect(request.comment.content).toBe("Reply");
     expect(request.comment.space).toBeUndefined();
+  });
+
+  it.each([
+    {
+      name: "bare URL",
+      content: "https://example.com/article",
+      attachments: [],
+      type: Bookmark_Type.LINK,
+      sourceUrl: "https://example.com/article",
+    },
+    { name: "text", content: "A saved thought", attachments: [], type: Bookmark_Type.TEXT, sourceUrl: "" },
+    {
+      name: "asset",
+      content: "",
+      attachments: [create(AttachmentSchema, { name: "attachments/image" })],
+      type: Bookmark_Type.ASSET,
+      sourceUrl: "",
+    },
+  ])("saves $name as an explicit bookmark type", async ({ content, attachments, type, sourceUrl }) => {
+    const state = createInitialState();
+    state.content = content;
+    state.metadata.attachments = attachments;
+
+    await memoService.save(state, { createAsBookmark: true });
+
+    expect(clients.saveBookmark).toHaveBeenCalledOnce();
+    const bookmark = clients.saveBookmark.mock.calls[0][0].bookmark;
+    expect(bookmark.bookmark).toMatchObject({ type, sourceUrl });
+    expect(clients.createMemo).not.toHaveBeenCalled();
   });
 
   it("sends only mutable references when editing a comment", async () => {

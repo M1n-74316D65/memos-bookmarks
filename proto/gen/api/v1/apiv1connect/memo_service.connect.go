@@ -36,6 +36,9 @@ const (
 const (
 	// MemoServiceCreateMemoProcedure is the fully-qualified name of the MemoService's CreateMemo RPC.
 	MemoServiceCreateMemoProcedure = "/memos.api.v1.MemoService/CreateMemo"
+	// MemoServiceSaveBookmarkProcedure is the fully-qualified name of the MemoService's SaveBookmark
+	// RPC.
+	MemoServiceSaveBookmarkProcedure = "/memos.api.v1.MemoService/SaveBookmark"
 	// MemoServiceListMemosProcedure is the fully-qualified name of the MemoService's ListMemos RPC.
 	MemoServiceListMemosProcedure = "/memos.api.v1.MemoService/ListMemos"
 	// MemoServiceGetMemoProcedure is the fully-qualified name of the MemoService's GetMemo RPC.
@@ -101,6 +104,9 @@ type MemoServiceClient interface {
 	// default PRIVATE).
 	// The memo is owned by the authenticated user; requires authentication.
 	CreateMemo(context.Context, *connect.Request[v1.CreateMemoRequest]) (*connect.Response[v1.Memo], error)
+	// SaveBookmark creates a bookmark or restores an existing link bookmark.
+	// Link bookmarks are deduplicated per user by their normalized source URL.
+	SaveBookmark(context.Context, *connect.Request[v1.SaveBookmarkRequest]) (*connect.Response[v1.Memo], error)
 	// ListMemos lists readable non-comment memos with pagination and filter.
 	ListMemos(context.Context, *connect.Request[v1.ListMemosRequest]) (*connect.Response[v1.ListMemosResponse], error)
 	// GetMemo gets a memo.
@@ -167,6 +173,12 @@ func NewMemoServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+MemoServiceCreateMemoProcedure,
 			connect.WithSchema(memoServiceMethods.ByName("CreateMemo")),
+			connect.WithClientOptions(opts...),
+		),
+		saveBookmark: connect.NewClient[v1.SaveBookmarkRequest, v1.Memo](
+			httpClient,
+			baseURL+MemoServiceSaveBookmarkProcedure,
+			connect.WithSchema(memoServiceMethods.ByName("SaveBookmark")),
 			connect.WithClientOptions(opts...),
 		),
 		listMemos: connect.NewClient[v1.ListMemosRequest, v1.ListMemosResponse](
@@ -295,6 +307,7 @@ func NewMemoServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 // memoServiceClient implements MemoServiceClient.
 type memoServiceClient struct {
 	createMemo            *connect.Client[v1.CreateMemoRequest, v1.Memo]
+	saveBookmark          *connect.Client[v1.SaveBookmarkRequest, v1.Memo]
 	listMemos             *connect.Client[v1.ListMemosRequest, v1.ListMemosResponse]
 	getMemo               *connect.Client[v1.GetMemoRequest, v1.Memo]
 	updateMemo            *connect.Client[v1.UpdateMemoRequest, v1.Memo]
@@ -320,6 +333,11 @@ type memoServiceClient struct {
 // CreateMemo calls memos.api.v1.MemoService.CreateMemo.
 func (c *memoServiceClient) CreateMemo(ctx context.Context, req *connect.Request[v1.CreateMemoRequest]) (*connect.Response[v1.Memo], error) {
 	return c.createMemo.CallUnary(ctx, req)
+}
+
+// SaveBookmark calls memos.api.v1.MemoService.SaveBookmark.
+func (c *memoServiceClient) SaveBookmark(ctx context.Context, req *connect.Request[v1.SaveBookmarkRequest]) (*connect.Response[v1.Memo], error) {
+	return c.saveBookmark.CallUnary(ctx, req)
 }
 
 // ListMemos calls memos.api.v1.MemoService.ListMemos.
@@ -429,6 +447,9 @@ type MemoServiceHandler interface {
 	// default PRIVATE).
 	// The memo is owned by the authenticated user; requires authentication.
 	CreateMemo(context.Context, *connect.Request[v1.CreateMemoRequest]) (*connect.Response[v1.Memo], error)
+	// SaveBookmark creates a bookmark or restores an existing link bookmark.
+	// Link bookmarks are deduplicated per user by their normalized source URL.
+	SaveBookmark(context.Context, *connect.Request[v1.SaveBookmarkRequest]) (*connect.Response[v1.Memo], error)
 	// ListMemos lists readable non-comment memos with pagination and filter.
 	ListMemos(context.Context, *connect.Request[v1.ListMemosRequest]) (*connect.Response[v1.ListMemosResponse], error)
 	// GetMemo gets a memo.
@@ -491,6 +512,12 @@ func NewMemoServiceHandler(svc MemoServiceHandler, opts ...connect.HandlerOption
 		MemoServiceCreateMemoProcedure,
 		svc.CreateMemo,
 		connect.WithSchema(memoServiceMethods.ByName("CreateMemo")),
+		connect.WithHandlerOptions(opts...),
+	)
+	memoServiceSaveBookmarkHandler := connect.NewUnaryHandler(
+		MemoServiceSaveBookmarkProcedure,
+		svc.SaveBookmark,
+		connect.WithSchema(memoServiceMethods.ByName("SaveBookmark")),
 		connect.WithHandlerOptions(opts...),
 	)
 	memoServiceListMemosHandler := connect.NewUnaryHandler(
@@ -617,6 +644,8 @@ func NewMemoServiceHandler(svc MemoServiceHandler, opts ...connect.HandlerOption
 		switch r.URL.Path {
 		case MemoServiceCreateMemoProcedure:
 			memoServiceCreateMemoHandler.ServeHTTP(w, r)
+		case MemoServiceSaveBookmarkProcedure:
+			memoServiceSaveBookmarkHandler.ServeHTTP(w, r)
 		case MemoServiceListMemosProcedure:
 			memoServiceListMemosHandler.ServeHTTP(w, r)
 		case MemoServiceGetMemoProcedure:
@@ -668,6 +697,10 @@ type UnimplementedMemoServiceHandler struct{}
 
 func (UnimplementedMemoServiceHandler) CreateMemo(context.Context, *connect.Request[v1.CreateMemoRequest]) (*connect.Response[v1.Memo], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("memos.api.v1.MemoService.CreateMemo is not implemented"))
+}
+
+func (UnimplementedMemoServiceHandler) SaveBookmark(context.Context, *connect.Request[v1.SaveBookmarkRequest]) (*connect.Response[v1.Memo], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("memos.api.v1.MemoService.SaveBookmark is not implemented"))
 }
 
 func (UnimplementedMemoServiceHandler) ListMemos(context.Context, *connect.Request[v1.ListMemosRequest]) (*connect.Response[v1.ListMemosResponse], error) {

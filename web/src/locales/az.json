@@ -21,13 +21,17 @@
     "open-memo": "Qeydi aç"
   },
   "bookmarks": {
-    "description": "Yadda saxladığınız keçidlər, yenidən baxmağa hazırdır.",
+    "description": "Sonra baxmaq üçün saxlanmış keçidlər, qeydlər və fayllar.",
+    "composer-placeholder": "Keçid yapışdırın və ya qeyd saxlayın...",
+    "bookmarklet": "Əlfəcin skripti",
     "empty": "Hələ əlfəcin yoxdur. Kitabxananızı yaratmaq üçün keçid saxlayın və ya CSV idxal edin.",
     "empty-archive": "Arxivlənmiş əlfəcin yoxdur.",
     "no-results": "Filtrlərinizə uyğun əlfəcin yoxdur. Filtrləri dəyişin və ya təmizləyin.",
     "views-label": "Əlfəcin görünüşləri",
     "unread": "Oxunmamış",
     "favorites": "Sevimlilər",
+    "add-favorite": "Sevimlilərə əlavə et",
+    "remove-favorite": "Sevimlilərdən çıxar",
     "archive": "Arxiv",
     "open-original": "Orijinalı aç",
     "search-placeholder": "Əlfəcinlərdə axtar",

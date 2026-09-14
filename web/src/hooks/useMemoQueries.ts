@@ -250,6 +250,20 @@ export function useCreateMemo() {
   });
 }
 
+export function useSaveBookmark() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (bookmark: Memo) => memoServiceClient.saveBookmark({ bookmark }),
+    onSuccess: (saved) => {
+      queryClient.invalidateQueries({ queryKey: memoKeys.lists() });
+      queryClient.setQueryData(memoKeys.detail(saved.name), saved);
+      queryClient.invalidateQueries({ queryKey: userKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: attachmentKeys.lists() });
+    },
+  });
+}
+
 export function useUpdateMemo() {
   const queryClient = useQueryClient();
 
