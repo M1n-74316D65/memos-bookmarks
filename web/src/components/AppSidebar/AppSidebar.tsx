@@ -4,6 +4,7 @@ import {
   ArrowRightIcon,
   BellIcon,
   BookmarkIcon,
+  BookmarkPlusIcon,
   BookOpenIcon,
   CalendarDaysIcon,
   ChevronDownIcon,
@@ -31,7 +32,7 @@ import { MemoDetailSidebar } from "@/components/MemoDetailSidebar";
 import { DEFAULT_SETTING_SECTION, SETTINGS_SECTIONS } from "@/components/Settings/settingSections";
 import StatisticsView from "@/components/StatisticsView";
 import UserMenu from "@/components/UserMenu";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -77,6 +78,30 @@ const NewMemoAction = ({ onClick }: { onClick: () => void }) => {
     <Tooltip>
       <TooltipTrigger render={<Button variant="outline" size="icon-compact" onClick={onClick} aria-label={label} data-new-memo-trigger />}>
         <SquarePenIcon className="size-4" strokeWidth={1.8} />
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+};
+
+const SaveLinkAction = ({ to, onClick }: { to: string; onClick: () => void }) => {
+  const t = useTranslate();
+  const label = t("common.save-link");
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Link
+            to={to}
+            onClick={onClick}
+            className={cn(buttonVariants({ variant: "outline", size: "icon-compact" }))}
+            aria-label={label}
+            data-save-link-trigger
+          />
+        }
+      >
+        <BookmarkPlusIcon className="size-4" strokeWidth={1.8} />
       </TooltipTrigger>
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
@@ -597,13 +622,21 @@ const SidebarBrand = ({ className, size = "md" }: { className?: string; size?: "
 const AppSidebar = ({ className }: { className?: string }) => {
   const t = useTranslate();
   const currentUser = useCurrentUser();
+  const location = useLocation();
   const { setMobileOpen } = useAppSidebar();
   const { canOpen: canCompose, openEditor } = useGlobalMemoEditor();
+  const bookmarkCollectionPath = collectionPathForLocation(ROUTES.BOOKMARKS, location.pathname);
+  const capturePath = `${ROUTES.BOOKMARK}?returnTo=${encodeURIComponent(bookmarkCollectionPath)}`;
   return (
     <aside className={cn("flex h-full w-full select-none flex-col bg-sidebar text-sidebar-foreground", className)}>
       <div data-sidebar-header className={cn("flex h-13 shrink-0 items-center justify-between gap-2", SIDEBAR_RAIL_CLASSES)}>
         <SidebarBrand className="min-w-0" size="header" />
-        {canCompose && <NewMemoAction onClick={openEditor} />}
+        {canCompose && (
+          <div className="flex shrink-0 items-center gap-1">
+            <SaveLinkAction to={capturePath} onClick={() => setMobileOpen(false)} />
+            <NewMemoAction onClick={openEditor} />
+          </div>
+        )}
       </div>
       <GlobalNavigation />
       <div className="mx-3 mt-2 border-t border-border/70" />

@@ -52,6 +52,19 @@ describe("MemoDetailSidebar", () => {
     expect(screen.getByRole("link", { name: "memo.back-to:common.bookmarks" })).toHaveAttribute("href", parentPage);
   });
 
+  it("opens a bookmark's original source from memo detail", () => {
+    const memo = create(MemoSchema, {
+      name: "memos/bookmark",
+      property: { links: [{ url: "https://www.example.com/articles/one" }] },
+    });
+    renderSidebar(<MemoDetailSidebar memo={memo} />);
+
+    const source = screen.getByRole("link", { name: "bookmarks.open-original: example.com" });
+    expect(source).toHaveAttribute("href", "https://www.example.com/articles/one");
+    expect(source).toHaveAttribute("target", "_blank");
+    expect(source).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
   it("returns to the scoped map with its filters, viewport, and selection", () => {
     const parentPage = "/spaces/travel/map?filter=tagSearch%3Atravel&lat=35&lng=135&zoom=12&memo=memos%2Fdetail";
     renderSidebar(<MemoDetailSidebar memo={create(MemoSchema, { name: "memos/detail" })} parentPage={parentPage} hasExplicitOrigin />);

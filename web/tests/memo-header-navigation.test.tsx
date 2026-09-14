@@ -6,6 +6,7 @@ import MemoHeader from "@/components/MemoView/components/MemoHeader";
 const state = vi.hoisted(() => ({
   creator: undefined as { username: string; displayName: string; avatarUrl: string } | undefined,
   currentUser: undefined as { name: string } | undefined,
+  links: [] as Array<{ url: string }>,
 }));
 
 vi.mock("@/components/RelativeTime", () => ({
@@ -58,7 +59,7 @@ vi.mock("@/components/MemoView/hooks", () => ({
 
 vi.mock("@/components/MemoView/MemoViewContext", () => ({
   useMemoViewContext: () => ({
-    memo: { name: "memos/123", visibility: 1, pinned: false, space: "spaces/product" },
+    memo: { name: "memos/123", visibility: 1, pinned: false, space: "spaces/product", property: { links: state.links } },
     creator: state.creator,
     currentUser: state.currentUser,
     parentPage: "/explore?filter=tagSearch%3Awork",
@@ -92,6 +93,7 @@ describe("MemoHeader navigation", () => {
   beforeEach(() => {
     state.creator = undefined;
     state.currentUser = undefined;
+    state.links = [];
   });
 
   it("uses one compact interaction surface for memo header actions", () => {
@@ -161,5 +163,24 @@ describe("MemoHeader navigation", () => {
 
     expect(metadata).toContainElement(timestamp);
     expect(space.closest("a, button")).toBeNull();
+  });
+
+  it.each([false, true])("exposes bookmark source metadata on ordinary memo cards when showCreator=%s", (showCreator) => {
+    state.links = [{ url: "https://www.example.com/articles/one" }];
+    if (showCreator) {
+      state.creator = { username: "alice", displayName: "Alice", avatarUrl: "" };
+    }
+
+    render(
+      <MemoryRouter>
+        <MemoHeader showCreator={showCreator} />
+      </MemoryRouter>,
+    );
+
+    const source = screen.getByRole("link", { name: "common.bookmarks: example.com" });
+    expect(source).toHaveAttribute("href", "https://www.example.com/articles/one");
+    expect(source).toHaveAttribute("target", "_blank");
+    expect(source).toHaveAttribute("rel", "noopener noreferrer");
+    expect(source.closest('[data-slot="memo-header-meta"]')).not.toBeNull();
   });
 });

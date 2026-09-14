@@ -13,7 +13,7 @@ import useCurrentUser from "@/hooks/useCurrentUser";
 import { useCreateMemo } from "@/hooks/useMemoQueries";
 import { buildBookmarkContent, isValidBookmarkUrl } from "@/lib/bookmark";
 import { spaceScopedCacheKey } from "@/lib/resource-names";
-import { ROUTES } from "@/router/routes";
+import { ROUTES, resolveCollectionRoute } from "@/router/routes";
 import { type Memo, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 
@@ -42,8 +42,9 @@ const Bookmark = () => {
   const [invalidInput, setInvalidInput] = useState(false);
 
   const requestedReturnTo = searchParams.get("returnTo") ?? "";
-  const returnTo =
-    requestedReturnTo === ROUTES.BOOKMARKS || requestedReturnTo.startsWith(`${ROUTES.BOOKMARKS}?`) ? requestedReturnTo : ROUTES.HOME;
+  const returnRoute = resolveCollectionRoute(requestedReturnTo);
+  const returnTo = returnRoute.pathname === ROUTES.BOOKMARKS ? requestedReturnTo : ROUTES.HOME;
+  const targetSpaceName = returnRoute.pathname === ROUTES.BOOKMARKS ? returnRoute.spaceName : selectedSpaceName;
   const returnLabel = returnTo === ROUTES.HOME ? t("bookmarks.capture-go-home") : t("memo.back-to", { source: t("common.bookmarks") });
   const url = searchParams.get("url") ?? "";
   const title = searchParams.get("title") ?? "";
@@ -60,7 +61,7 @@ const Bookmark = () => {
   const autosave = searchParams.get("autosave") === "1" && validUrl;
 
   const content = useMemo(() => buildBookmarkContent(url, title, tags), [url, title, tags]);
-  const editorCacheKey = spaceScopedCacheKey(`bookmark:${encodeURIComponent(url.trim())}`, selectedSpaceName);
+  const editorCacheKey = spaceScopedCacheKey(`bookmark:${encodeURIComponent(url.trim())}`, targetSpaceName);
   const cachedDraft = cacheService.loadDraft(cacheService.key(user?.name ?? "", editorCacheKey));
   const initialContent = cachedDraft.content || cachedDraft.attachments.length ? undefined : content;
 
@@ -69,8 +70,8 @@ const Bookmark = () => {
       return;
     }
     autosaveStartedRef.current = true;
-    createMemo.mutate(createMemoFromContent(content, selectedSpaceName), {
-      onSuccess: () => navigate("/"),
+    createMemo.mutate(createMemoFromContent(content, targetSpaceName), {
+      onSuccess: () => navigate(returnTo),
       onError: () => {
         toast.error(t("bookmarks.capture-save-failed"));
         const draftParams = new URLSearchParams(searchParams);
@@ -78,7 +79,7 @@ const Bookmark = () => {
         setSearchParams(draftParams, { replace: true });
       },
     });
-  }, [autosave, content, createMemo, navigate, searchParams, selectedSpaceName, setSearchParams, t]);
+  }, [autosave, content, createMemo, navigate, returnTo, searchParams, setSearchParams, t, targetSpaceName]);
 
   const bookmarklet = `javascript:location.href='${window.location.origin}/bookmark?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title)+'&autosave=1'`;
 
@@ -181,7 +182,7 @@ const Bookmark = () => {
           key={editorCacheKey}
           cacheKey={editorCacheKey}
           initialContent={initialContent}
-          defaultSpace={selectedSpaceName}
+          defaultSpace={targetSpaceName}
           autoFocus
           onConfirm={() => navigate(returnTo)}
           onCancel={() => navigate(returnTo)}

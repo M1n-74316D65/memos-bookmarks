@@ -241,6 +241,7 @@ describe("App sidebar logo", () => {
     const switcher = screen.getByRole("button", { name: "space.switch: common.memos" });
     const header = switcher.closest("[data-sidebar-header]");
     const compose = screen.getByRole("button", { name: "editor.new-memo" });
+    const saveLink = screen.getByRole("link", { name: "common.save-link" });
     const primaryNavigation = screen.getByRole("navigation", { name: "Primary" });
     const search = within(primaryNavigation).getByRole("button", { name: "common.search" });
 
@@ -253,6 +254,8 @@ describe("App sidebar logo", () => {
     expect(switcher.querySelector(".lucide-chevrons-up-down")).not.toBeNull();
     expect(switcher.querySelector(".lucide-chevron-down")).toBeNull();
     expect(compose).toHaveClass("size-7", "rounded-md", "border", "bg-background", "shadow-xs");
+    expect(saveLink).toHaveAttribute("href", "/bookmark?returnTo=%2Fbookmarks");
+    expect(saveLink).toHaveClass("size-7", "rounded-md", "border", "bg-background", "shadow-xs");
     expect(compose).not.toHaveClass("rounded-full");
     expect(header).not.toContainElement(search);
     expect(search).toHaveClass("ms-auto", "h-7", "px-1.5");
@@ -267,6 +270,19 @@ describe("App sidebar logo", () => {
     // The Calendar destination is a nav pill; the statistics calendar stays off this route.
     expect(within(primaryNavigation).getByRole("link", { name: "common.calendar" })).toHaveAttribute("href", "/calendar");
     expect(screen.queryByText("Calendar")).not.toBeInTheDocument();
+  });
+
+  it("carries the selected Space from the memo shell into bookmark capture", () => {
+    render(
+      <MemoryRouter initialEntries={["/spaces/product/attachments"]}>
+        <AppSidebar />
+      </MemoryRouter>,
+    );
+
+    const saveLink = screen.getByRole("link", { name: "common.save-link" });
+    expect(saveLink).toHaveAttribute("href", "/bookmark?returnTo=%2Fspaces%2Fproduct%2Fbookmarks");
+    fireEvent.click(saveLink);
+    expect(sidebarState.setMobileOpen).toHaveBeenCalledWith(false);
   });
 
   it.each([

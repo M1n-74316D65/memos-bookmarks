@@ -96,6 +96,24 @@ describe("bookmark capture", () => {
     expect(screen.getByRole("link", { name: "memo.back-to" })).toHaveAttribute("href", returnTo);
   });
 
+  it("places a capture in the Space encoded by its bookmark collection", () => {
+    const returnTo = "/spaces/work/bookmarks?filter=tagSearch%3Aresearch";
+    renderCapture(`?url=https://example.com/article&returnTo=${encodeURIComponent(returnTo)}`);
+
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-space", "spaces/work");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByTestId("location")).toHaveTextContent(returnTo);
+  });
+
+  it("autosaves into and returns to the Space bookmark collection", () => {
+    const returnTo = "/spaces/work/bookmarks";
+    state.mutate.mockImplementation((_memo, options: { onSuccess: () => void }) => options.onSuccess());
+    renderCapture(`?url=https://example.com/article&autosave=1&returnTo=${encodeURIComponent(returnTo)}`);
+
+    expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({ space: "spaces/work" }), expect.any(Object));
+    expect(screen.getByTestId("location").textContent).toBe(returnTo);
+  });
+
   it.each([
     "https://evil.example/bookmarks",
     "//evil.example/bookmarks",

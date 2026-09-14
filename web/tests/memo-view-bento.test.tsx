@@ -142,3 +142,47 @@ it("falls back to the text summary when a cover cannot load", () => {
   expect(container.querySelector("img")).toBeNull();
   expect(screen.getByText("Secret excerpt")).toBeVisible();
 });
+
+describe("MemoView detail cover", () => {
+  it("renders the saved cover only on the memo detail route", () => {
+    const detail = render(
+      <MemoryRouter initialEntries={["/memos/source"]}>
+        <MemoView memo={{ ...bookmark, tags: [] }} />
+      </MemoryRouter>,
+    );
+
+    expect(detail.container.querySelector("img")).toHaveAttribute("src", "/file/memos/source/covers/cover");
+    expect(screen.getByTestId("header")).toBeVisible();
+    expect(screen.getByTestId("body")).toBeVisible();
+    detail.unmount();
+
+    const feed = render(
+      <MemoryRouter>
+        <MemoView memo={{ ...bookmark, tags: [] }} />
+      </MemoryRouter>,
+    );
+    expect(feed.container.querySelector("img")).toBeNull();
+  });
+
+  it("keeps sensitive covers concealed", () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={["/memos/source"]}>
+        <MemoView memo={bookmark} />
+      </MemoryRouter>,
+    );
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("removes a detail cover that cannot load without hiding the memo", () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={["/memos/source"]}>
+        <MemoView memo={{ ...bookmark, tags: [] }} />
+      </MemoryRouter>,
+    );
+    const cover = container.querySelector("img");
+    if (!cover) throw new Error("Expected the saved cover to render");
+    fireEvent.error(cover);
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByTestId("body")).toBeVisible();
+  });
+});

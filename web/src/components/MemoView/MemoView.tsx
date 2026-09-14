@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
 import { lazyWithReload } from "@/utils/lazy";
 import { isSuperUser } from "@/utils/user";
+import { getMemoLinkCoverUrl } from "./bentoCover";
 import { MemoBody, MemoCommentListView, MemoHeader } from "./components";
 import MemoSummary from "./components/MemoSummary";
 import { MEMO_CARD_BASE_CLASSES } from "./constants";
@@ -50,6 +51,7 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
   const [showEditor, setShowEditor] = useState(false);
   const [EditorComponent, setEditorComponent] = useState<ComponentType<MemoEditorProps>>();
   const [cardWidth, setCardWidth] = useState(0);
+  const [failedDetailCover, setFailedDetailCover] = useState<string>();
 
   const currentUser = useCurrentUser();
   const { userTagsSetting } = useAuth();
@@ -96,6 +98,8 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
 
   const isInMemoDetailPage = isMemoDetailPath(location.pathname, memoData.name);
   const showCommentPreview = variant !== "bento" && !isInMemoDetailPage && computeCommentAmount(memoData) > 0;
+  const detailCover = variant !== "bento" && isInMemoDetailPage ? getMemoLinkCoverUrl(memoData, shareToken) : undefined;
+  const visibleDetailCover = detailCover === failedDetailCover ? undefined : detailCover;
 
   // The card width is only needed by the share-image dialog. Keep feed cards
   // free of a permanent ResizeObserver and measure only while that dialog is open.
@@ -186,6 +190,17 @@ const MemoView = forwardRef<MemoViewHandle, MemoViewProps>((props, ref) => {
             showPinned={showPinned}
             showSpace={showSpace}
           />
+
+          {visibleDetailCover && (!blurred || showBlurredContent) && (
+            <div aria-hidden className="w-full overflow-hidden rounded-lg border border-border/70 bg-muted">
+              <img
+                src={visibleDetailCover}
+                alt=""
+                className="aspect-[1.91/1] max-h-80 w-full object-cover"
+                onError={() => setFailedDetailCover(visibleDetailCover)}
+              />
+            </div>
+          )}
 
           <MemoBody compact={compact} />
         </>

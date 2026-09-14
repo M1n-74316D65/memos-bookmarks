@@ -1,4 +1,4 @@
-import { BookmarkIcon } from "lucide-react";
+import { ArrowUpRightIcon, BookmarkIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import RelativeTime from "@/components/RelativeTime";
@@ -16,6 +16,7 @@ import MemoActionMenu from "../../MemoActionMenu";
 import { ReactionSelector } from "../../MemoReactionListView";
 import UserAvatar from "../../UserAvatar";
 import VisibilityIcon from "../../VisibilityIcon";
+import { getBentoTileSourceUrl } from "../bentoCover";
 import { useMemoActions } from "../hooks";
 import { useMemoViewContext, useMemoViewDerived } from "../MemoViewContext";
 import { createMemoNavigationState } from "../navigation";
@@ -63,6 +64,27 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ timeDisplay = "relative", showC
         : undefined,
   };
   const spaceMetadata = showSpace && memo.space ? <MemoSpaceBadge spaceName={memo.space} /> : null;
+  const sourceUrl = getBentoTileSourceUrl(memo);
+  const sourceHostname = sourceUrl?.hostname.replace(/^www\./, "");
+  const sourceMetadata = sourceUrl ? (
+    <a
+      href={sourceUrl.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`${t("common.bookmarks")}: ${sourceHostname}`}
+      className="flex min-w-0 max-w-36 items-center gap-1 rounded-sm text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <BookmarkIcon aria-hidden className="size-3 shrink-0" strokeWidth={1.8} />
+      <span className="truncate font-mono">{sourceHostname}</span>
+      <ArrowUpRightIcon aria-hidden className="size-2.5 shrink-0" />
+    </a>
+  ) : null;
+  const trailingMetadata = (
+    <>
+      {spaceMetadata}
+      {sourceMetadata}
+    </>
+  );
 
   return (
     <div className="flex w-full items-center justify-between gap-2">
@@ -72,13 +94,13 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ timeDisplay = "relative", showC
             creator={creator}
             displayTime={displayTime}
             timeTooltip={timeTooltip}
-            trailingMetadata={spaceMetadata}
+            trailingMetadata={trailingMetadata}
             onGotoDetail={handleGotoMemoDetailPage}
           />
         ) : (
           <div data-slot="memo-header-meta" className="flex min-w-0 items-center gap-1.5">
             <TimeDisplay displayTime={displayTime} timeTooltip={timeTooltip} onGotoDetail={handleGotoMemoDetailPage} />
-            {spaceMetadata}
+            {trailingMetadata}
           </div>
         )}
         {memo.name === newMemoName && (

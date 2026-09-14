@@ -1,6 +1,7 @@
 import copy from "copy-to-clipboard";
 import {
   ArrowLeftIcon,
+  BookmarkIcon,
   ChevronDownIcon,
   CornerUpLeftIcon,
   Edit3Icon,
@@ -20,6 +21,7 @@ import { extractHeadings } from "@/components/MemoContent/pipeline";
 import { getRelationBuckets, getRelationMemo } from "@/components/MemoMetadata/Relation/relationHelpers";
 import { useResolvedRelationMemos } from "@/components/MemoMetadata/Relation/useResolvedRelationMemos";
 import MemoParentPlaceholder, { type MemoParentStatus } from "@/components/MemoParentPlaceholder";
+import { getBentoTileSourceUrl } from "@/components/MemoView/bentoCover";
 import { createMemoNavigationState } from "@/components/MemoView/navigation";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useInstance } from "@/contexts/InstanceContext";
@@ -169,6 +171,8 @@ const MemoDetailSidebar = ({
   const showComments = !forceReadonly && commentCount !== undefined && commentCount > 0;
   const showOnThisMemo = headings.length > 1 || showComments;
   const showConnections = !forceReadonly && (!!parentMemo || !!parentStatus || referenced.length > 0);
+  const sourceUrl = getBentoTileSourceUrl(memo);
+  const sourceHostname = sourceUrl?.hostname.replace(/^www\./, "");
 
   const handleCopyLink = () => {
     const host = (profile.instanceUrl || window.location.origin).replace(/\/+$/, "");
@@ -250,6 +254,19 @@ const MemoDetailSidebar = ({
       )}
 
       <SidebarSection label={t("common.actions")}>
+        {sourceUrl && (
+          <a
+            href={sourceUrl.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${t("bookmarks.open-original")}: ${sourceHostname}`}
+            className={cn(SIDEBAR_ROW_CLASSES, "text-muted-foreground hover:bg-sidebar-accent/65 hover:text-foreground")}
+          >
+            <SidebarRowIconSlot icon={BookmarkIcon} />
+            <span className="min-w-0 flex-1 truncate text-start">{t("bookmarks.open-original")}</span>
+            <span className="max-w-24 truncate font-mono text-[11px] opacity-70">{sourceHostname}</span>
+          </a>
+        )}
         {canEdit && <SidebarRow icon={Edit3Icon} label={t("common.edit")} onClick={onEdit} />}
         {canComment && <SidebarRow icon={MessageSquarePlusIcon} label={t("memo.comment.write-a-comment")} onClick={onCommentCreate} />}
         <DropdownMenu>
